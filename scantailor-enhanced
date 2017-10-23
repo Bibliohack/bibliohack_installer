@@ -1,18 +1,63 @@
+#!/bin/bash
 
+SCANTAILOR_SRC_DIR='/opt/src/scantailor-enhanced'
 
-#DISTRO=`cat /etc/issue.net`
-DISTRO=`cat lsb_release -rs`
-# lsb_release  -cs -> 'xenial'
+function check_scantailor_enh() {
+   [[ -x $SCANTAILOR_SRC_DIR/scantailor-cli ]] && { 
+	$SCANTAILOR_SRC_DIR/scantailor-cli -h | grep "disable-content-detection" && return 0 || return 1 
+   } || return 1 ;
+}
+
+check_scantailor_enh && { echo "Scantailor enhanced ya está instalado"; exit 0; } 
+
+[[ -d $SCANTAILOR_SRC_DIR ]] && { echo "Existe una instalacion previa inconclusa"; exit 0; }
+
+# cat /etc/issue.net # lsb_release  -cs -> 'xenial'
+DISTRO=`lsb_release -rs`
+
+if ! grep -q "^deb-src .* xenial main " /etc/apt/sources.list /etc/apt/sources.list.d/*
+  then
+    echo "Debe tener instalado el repositorio de paquetes fuente (deb-src) de Ubuntu"
+    exit 1
+fi
+
+echo "Instalando scantailor-enhanced en Ubuntu $DISTRO"
 
 if [ "$DISTRO" == "16.04" ]
  then
-   sudo apt-get install build-essential cmake
-   sudo apt-get install libqt4-dev
-   sudo apt-get install libjpeg8-dev libjpeg-dev libtiff5-dev libpng12-dev
-   sudo apt-get install zlib1g-dev libboost-all-dev libxrender-dev 
+   # apt-rdepends -b --follow=DEPENDS scantailor
+   SCANTAILOR_DEV_DEP='cmake build-essential libboost-dev libboost-test-dev libjpeg-dev libpng-dev libqt4-dev libqt4-opengl-dev libtiff-dev libxrender-dev txt2man xauth xvfb git subversion' # checkinstall
+   # apt-cache depends scantailor
+   SCANTAILOR_BIN_DEP='libc6 libgcc1 libjpeg8 libpng12-0 libqt4-xml libqtcore4 libqtgui4 libstdc++6 libtiff5 libxrender1' # libjpeg8-dev libjpeg-dev libtiff5-dev libpng12-dev zlib1g-dev libboost-all-dev 
 
-   [[ -d "/opt/src" ]] || sudo mkdir /opt/src
-   [[ -w "/opt/src" ]] || sudo chmod a+rw /opt/src
+   sudo apt-get update
+
+   echo "Instalando dependencias de Scantailor (binario)"
+   sudo apt-get install -y $SCANTAILOR_BIN_DEP && echo "OK" || { echo "FAIL"; exit 1; }
+
+   echo "Instalando dependencias de Scantailor (compilación)"
+   sudo apt-get install -y $SCANTAILOR_DEV_DEP && echo "OK" || { echo "FAIL"; exit 1; }
+
+   echo "Comprobando directorio para compilación"
+   [[ -d "/opt/src" ]] && echo "OK /opt/src exist" || sudo mkdir /opt/src
+   [[ -w "/opt/src" ]] && echo "OK /opt/src writable" || sudo chmod a+rw /opt/src
    cd /opt/src
+    
+   echo "Clonando repositorio Scantailor en $SCANTAILOR_SRC_DIR"
+   git clone -b enhanced https://github.com/d-a-l/scantailor.git $SCANTAILOR_SRC_DIR
 
+   if [[ -d "$SCANTAILOR_SRC_DIR" ]] 
+    then
+     cd $SCANTAILOR_SRC_DIR
+     echo "Compilando Scantailor enhanced" 
+     cmake . && make 
+     # checkinstall --pkgname scantailor --pkgversion ?? --pkgrelease ?? 
+   else
+     echo "no existe '$SCANTAILOR_SRC_DIR'"
+   fi
+
+   check_scantailor_enh && echo "Scantailor instalado exitosamente en '$SCANTAILOR_SRC_DIR'" || { echo "Falló la instalacion de Scantailor enhanced"; exit 1; } 
+   echo "Para ejecutar scantailor-enhanced use: '$SCANTAILOR_SRC_DIR/scantailor-cli' (linea de comandos) ó '$SCANTAILOR_SRC_DIR/scantailor' (interfase gráfica)"
 fi
+
+exit 0
