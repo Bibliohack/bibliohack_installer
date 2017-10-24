@@ -2,62 +2,101 @@
 
 SCANTAILOR_SRC_DIR='/opt/src/scantailor-enhanced'
 
+# ---------------------------------------------------------------------------------------------------- #
+
+function check_deb_src() {
+  [[ -f "$1" ]] || return 1
+  [[ "$2" == "" ]] && return 1
+  CODENAME="$2"; SOURCES="$1"
+  if ! grep -q "^deb-src .* $CODENAME main " $SOURCES ${SOURCES}.d/*
+   then
+    echo "Debe tener habilitado el repositorio de paquetes fuente (deb-src) de Ubuntu $CODENAME"
+    echo "¿Desea habilitarlo? [S/n]"
+    read -p "> " yn
+    if [[ ! "$yn" =~ (S|s) ]]; then echo "Debera activarlos manualmente para continuar"; return 1; fi
+
+    LM=$( sed -nr "/^# deb-src .* $CODENAME main/p" $SOURCES | wc -l )
+    if [ "$LM" -eq  "1" ]
+     then
+       echo "Activando deb-src para $CODENAME"
+       sudo cp "$SOURCES" "${SOURCES}.bkptmp"
+       sudo sed -i "/^# deb-src .* $CODENAME main/s/^# //" $SOURCES && \
+            echo "OK" || \
+            { echo "No se pudo activar el repositorio de paquetes fuentes en '$SOURCES'"; 
+              echo "Debera activarlos manualmente"
+              return 1; }
+       sudo apt-get update
+    else
+       echo "No se pudo activar el repositorio de paquetes fuentes en '$SOURCES'"; 
+       echo "Debera activarlos manualmente"
+       return 1
+    fi
+  fi
+  return 0
+}
+
 function check_scantailor_enh() {
-   [[ -x $SCANTAILOR_SRC_DIR/scantailor-cli ]] && { 
-	$SCANTAILOR_SRC_DIR/scantailor-cli -h | grep "disable-content-detection" && return 0 || return 1 
+   [[ -x $SCANTAILOR_SRC_DIR/scantailor-cli ]] && {
+	$SCANTAILOR_SRC_DIR/scantailor-cli -h | grep -q "disable-content-detection" && return 0 || return 1
    } || return 1 ;
 }
 
-check_scantailor_enh && { echo "Scantailor enhanced ya está instalado"; exit 0; } 
+# ---------------------------------------------------------------------------------------------------- #
+
+check_scantailor_enh && { echo "Scantailor enhanced ya está instalado"; exit 0; }
 
 [[ -d $SCANTAILOR_SRC_DIR ]] && { echo "Existe una instalacion previa inconclusa"; exit 0; }
 
 # cat /etc/issue.net # lsb_release  -cs -> 'xenial'
-DISTRO=`lsb_release -rs`
+OSNAME=`lsb_release -is`
+CODENM=`lsb_release -cs`
+RELEASN=`lsb_release -rs`
 
-if ! grep -q "^deb-src .* xenial main " /etc/apt/sources.list /etc/apt/sources.list.d/*
-  then
-    echo "Debe tener instalado el repositorio de paquetes fuente (deb-src) de Ubuntu"
-    exit 1
-fi
+check_deb_src /etc/apt/sources.list "$CODENM" || { echo ":("; exit 0; }
 
-echo "Instalando scantailor-enhanced en Ubuntu $DISTRO"
+echo "Instalando scantailor-enhanced en $OSNAME $RELEASN"
 
-if [ "$DISTRO" == "16.04" ]
+if [ "$RELEASN" == "16.04" ]
  then
    # apt-rdepends -b --follow=DEPENDS scantailor
    SCANTAILOR_DEV_DEP='cmake build-essential libboost-dev libboost-test-dev libjpeg-dev libpng-dev libqt4-dev libqt4-opengl-dev libtiff-dev libxrender-dev txt2man xauth xvfb git subversion' # checkinstall
    # apt-cache depends scantailor
    SCANTAILOR_BIN_DEP='libc6 libgcc1 libjpeg8 libpng12-0 libqt4-xml libqtcore4 libqtgui4 libstdc++6 libtiff5 libxrender1' # libjpeg8-dev libjpeg-dev libtiff5-dev libpng12-dev zlib1g-dev libboost-all-dev 
-
-   sudo apt-get update
-
-   echo "Instalando dependencias de Scantailor (binario)"
-   sudo apt-get install -y $SCANTAILOR_BIN_DEP && echo "OK" || { echo "FAIL"; exit 1; }
-
-   echo "Instalando dependencias de Scantailor (compilación)"
-   sudo apt-get install -y $SCANTAILOR_DEV_DEP && echo "OK" || { echo "FAIL"; exit 1; }
-
-   echo "Comprobando directorio para compilación"
-   [[ -d "/opt/src" ]] && echo "OK /opt/src exist" || sudo mkdir /opt/src
-   [[ -w "/opt/src" ]] && echo "OK /opt/src writable" || sudo chmod a+rw /opt/src
-   cd /opt/src
-    
-   echo "Clonando repositorio Scantailor en $SCANTAILOR_SRC_DIR"
-   git clone -b enhanced https://github.com/d-a-l/scantailor.git $SCANTAILOR_SRC_DIR
-
-   if [[ -d "$SCANTAILOR_SRC_DIR" ]] 
-    then
-     cd $SCANTAILOR_SRC_DIR
-     echo "Compilando Scantailor enhanced" 
-     cmake . && make 
-     # checkinstall --pkgname scantailor --pkgversion ?? --pkgrelease ?? 
-   else
-     echo "no existe '$SCANTAILOR_SRC_DIR'"
-   fi
-
-   check_scantailor_enh && echo "Scantailor instalado exitosamente en '$SCANTAILOR_SRC_DIR'" || { echo "Falló la instalacion de Scantailor enhanced"; exit 1; } 
-   echo "Para ejecutar scantailor-enhanced use: '$SCANTAILOR_SRC_DIR/scantailor-cli' (linea de comandos) ó '$SCANTAILOR_SRC_DIR/scantailor' (interfase gráfica)"
+else
+  echo "Su sistema operativo '$OSNAME' '$CODEN' '$RELEASN', no esta soportado"
+  exit 0
 fi
+
+sudo apt-get update
+
+echo "Instalando dependencias de Scantailor (binario)"
+sudo apt-get install -y $SCANTAILOR_BIN_DEP && echo "OK" || { echo "FAIL"; exit 1; }
+
+echo "Instalando dependencias de Scantailor (compilación)"
+sudo apt-get install -y $SCANTAILOR_DEV_DEP && echo "OK" || { echo "FAIL"; exit 1; }
+
+echo "Comprobando directorio para compilación"
+[[ -d "/opt/src" ]] && echo "OK /opt/src exist" || sudo mkdir /opt/src
+[[ -w "/opt/src" ]] && echo "OK /opt/src writable" || sudo chmod a+rw /opt/src
+cd /opt/src
+
+echo "Clonando repositorio Scantailor en $SCANTAILOR_SRC_DIR"
+git clone -b enhanced https://github.com/d-a-l/scantailor.git $SCANTAILOR_SRC_DIR
+
+if [[ -d "$SCANTAILOR_SRC_DIR" ]]
+ then
+   cd $SCANTAILOR_SRC_DIR
+   echo "Compilando Scantailor enhanced"
+   cmake . && make
+   # checkinstall --pkgname scantailor --pkgversion ?? --pkgrelease ??
+else
+   echo "no existe '$SCANTAILOR_SRC_DIR'"
+fi
+
+check_scantailor_enh && echo "Scantailor instalado exitosamente en '$SCANTAILOR_SRC_DIR'" || { echo "Falló la instalacion de Scantailor enhanced"; exit 1; } 
+
+echo "Para ejecutar scantailor-enhanced use:"
+echo " '$SCANTAILOR_SRC_DIR/scantailor-cli' (linea de comandos) ó"
+echo " '$SCANTAILOR_SRC_DIR/scantailor' (interfase gráfica)"
 
 exit 0
