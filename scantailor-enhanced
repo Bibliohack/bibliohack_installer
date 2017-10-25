@@ -1,5 +1,10 @@
 #!/bin/bash
 
+if [ "$(id -u)" != "0" ]; then
+   echo "Este script debe ejecutarse como root" 1>&2
+   exit 1
+fi
+
 SCANTAILOR_SRC_DIR='/opt/src/scantailor-enhanced'
 
 # ---------------------------------------------------------------------------------------------------- #
@@ -8,7 +13,7 @@ function check_deb_src() {
   [[ -f "$1" ]] || return 1
   [[ "$2" == "" ]] && return 1
   CODENAME="$2"; SOURCES="$1"
-  if ! grep -q "^deb-src .* $CODENAME main " $SOURCES ${SOURCES}.d/*
+  if ! grep -q "^deb-src .* $CODENAME main " $SOURCES ${SOURCES}.d/* 2>/dev/null
    then
     echo "Debe tener habilitado el repositorio de paquetes fuente (deb-src) de Ubuntu $CODENAME"
     echo "¿Desea habilitarlo? [S/n]"
@@ -19,13 +24,13 @@ function check_deb_src() {
     if [ "$LM" -eq  "1" ]
      then
        echo "Activando deb-src para $CODENAME"
-       sudo cp "$SOURCES" "${SOURCES}.bkptmp"
-       sudo sed -i "/^# deb-src .* $CODENAME main/s/^# //" $SOURCES && \
+       cp "$SOURCES" "${SOURCES}.bkptmp"
+       sed -i "/^# deb-src .* $CODENAME main/s/^# //" $SOURCES && \
             echo "OK" || \
             { echo "No se pudo activar el repositorio de paquetes fuentes en '$SOURCES'"; 
               echo "Debera activarlos manualmente"
               return 1; }
-       sudo apt-get update
+       apt-get update
     else
        echo "No se pudo activar el repositorio de paquetes fuentes en '$SOURCES'"; 
        echo "Debera activarlos manualmente"
@@ -56,7 +61,7 @@ check_deb_src /etc/apt/sources.list "$CODENM" || { echo ":("; exit 0; }
 
 echo "Instalando scantailor-enhanced en $OSNAME $RELEASN"
 
-if [ "$RELEASN" == "16.04" ]
+if [ "$RELEASN" == '16.04' ] && [ "$OSNAME" == 'Ubuntu' ]
  then
    # apt-rdepends -b --follow=DEPENDS scantailor
    SCANTAILOR_DEV_DEP='cmake build-essential libboost-dev libboost-test-dev libjpeg-dev libpng-dev libqt4-dev libqt4-opengl-dev libtiff-dev libxrender-dev txt2man xauth xvfb git subversion' # checkinstall
@@ -67,17 +72,17 @@ else
   exit 0
 fi
 
-sudo apt-get update
+apt-get update
 
 echo "Instalando dependencias de Scantailor (binario)"
-sudo apt-get install -y $SCANTAILOR_BIN_DEP && echo "OK" || { echo "FAIL"; exit 1; }
+apt-get install -y $SCANTAILOR_BIN_DEP && echo "OK" || { echo "FAIL"; exit 1; }
 
 echo "Instalando dependencias de Scantailor (compilación)"
-sudo apt-get install -y $SCANTAILOR_DEV_DEP && echo "OK" || { echo "FAIL"; exit 1; }
+apt-get install -y $SCANTAILOR_DEV_DEP && echo "OK" || { echo "FAIL"; exit 1; }
 
 echo "Comprobando directorio para compilación"
-[[ -d "/opt/src" ]] && echo "OK /opt/src exist" || sudo mkdir /opt/src
-[[ -w "/opt/src" ]] && echo "OK /opt/src writable" || sudo chmod a+rw /opt/src
+[[ -d "/opt/src" ]] && echo "OK /opt/src exist" || mkdir /opt/src
+[[ -w "/opt/src" ]] && echo "OK /opt/src writable" || chmod a+rw /opt/src
 cd /opt/src
 
 echo "Clonando repositorio Scantailor en $SCANTAILOR_SRC_DIR"
