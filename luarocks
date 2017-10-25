@@ -1,0 +1,73 @@
+#!/bin/bash
+ 
+function check_if_package_installed() {
+   [[ "$1" == "" ]] && exit 1
+   PACKAGENAME="$1"
+   if dpkg-query -W --showformat='${Status}\n' $PACKAGENAME 2>/dev/null | grep -q "install ok installed"
+     then 
+      return 0
+   else
+      return 1
+   fi
+}
+
+OSNAME=`lsb_release -is`
+CODENM=`lsb_release -cs`
+RELEASN=`lsb_release -rs`
+
+if [ "$OSNAME" == "Ubuntu" ] && [ "$RELEASN" == "16.04" ] 
+ then
+   echo "Instalando Luarocks para lua 5.1 y lua 5.2 en $OSNAME $RELEASN"
+
+   LRVER="2.4.3"
+   echo "Se instalará Luarocks $LRVER"
+
+   echo "Comprobando directorio para compilación"
+   [[ -d "/opt/src" ]] && echo "OK /opt/src exist" || sudo mkdir /opt/src
+   [[ -w "/opt/src" ]] && echo "OK /opt/src writable" || sudo chmod a+rw /opt/src
+   [[ -d /opt/src/luarocks-${LRVER} ]] && {
+      echo "Ya existe el directorio de compilacion /opt/src/luarocks-${LRVER}"
+      echo "Desinstale versiones previas de Luarocks del sistema y borre los directorios de compilación"
+      exit 1
+   }
+   echo "Comprobando si hay otras versiones instaladas"
+   for ver in "" "5.1" "5.2"
+   do
+      check_if_package_installed "luarocks${ver}" && {
+         echo "El paquete luarocks${ver} ya esta instalado, debe removerse para continuar"
+         echo "¿Desea continuar? S/n"
+         read -p "> " yn
+         [[ ! "$yn" =~ (S|s) ]] && { 
+	    echo "Debera removerlo manualmente para continuar"
+            exit 0
+         }
+         sudo apt remove -y luarocks${ver} || exit 1
+      }
+   done
+ 
+   echo "Descargando luarocks"
+   cd /opt/src
+   rm -f luarocks-${LRVER}.tar.gz || exit 1
+   wget -N http://luarocks.github.io/luarocks/releases/luarocks-${LRVER}.tar.gz
+   [[ -f luarocks-${LRVER}.tar.gz ]] && echo "OK" || {
+      echo "No se pudo descargar luarocks-${LRVER}.tar.gz"
+      exit 1
+   }
+   tar xzvf luarocks-${LRVER}.tar.gz || exit 1
+   [[ -d luarocks-${LRVER} ]] || exit 1
+   cd luarocks-${LRVER}
+
+   for ver in "5.1" "5.2"
+    do
+      ./configure --lua-version=$ver --versioned-rocks-dir && make build && sudo make install && \
+      echo "Luarocks $ver instalado exitosamente" || { 
+         echo "ERROR: Luarocks $ver no se instaló"
+         exit 1
+      }
+   done
+fi
+exit 0
+
+
+# sudo luarocks install luafilesystem
+# https://stackoverflow.com/questions/20321560/how-do-install-libraries-for-both-lua5-2-and-5-1-using-luarocks
