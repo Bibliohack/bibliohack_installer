@@ -1,21 +1,28 @@
 #!/bin/bash
- 
+
 function check_if_package_installed() {
    [[ "$1" == "" ]] && exit 1
    PACKAGENAME="$1"
    if dpkg-query -W --showformat='${Status}\n' $PACKAGENAME 2>/dev/null | grep -q "install ok installed"
-     then 
+     then
       return 0
    else
       return 1
    fi
 }
 
+# TODO: verificar si lua (y otras dependencias de luarocks estan instaladas)
+echo "Este script no verifica las dependencias de Luarocks"
+echo "Lua debe estar instalado en el sistema, continuar? [S/n]"
+read -p "> " yn
+[[ ! "$yn" =~ (S|s) ]] && exit 0
+
+
 OSNAME=`lsb_release -is`
 CODENM=`lsb_release -cs`
 RELEASN=`lsb_release -rs`
 
-if [ "$OSNAME" == "Ubuntu" ] && [ "$RELEASN" == "16.04" ] 
+if [ "$OSNAME" == "Ubuntu" ] && [ "$RELEASN" == "16.04" ]
  then
    echo "Instalando Luarocks para lua 5.1 y lua 5.2 en $OSNAME $RELEASN"
 
@@ -37,14 +44,14 @@ if [ "$OSNAME" == "Ubuntu" ] && [ "$RELEASN" == "16.04" ]
          echo "El paquete luarocks${ver} ya esta instalado, debe removerse para continuar"
          echo "¿Desea continuar? S/n"
          read -p "> " yn
-         [[ ! "$yn" =~ (S|s) ]] && { 
-	    echo "Debera removerlo manualmente para continuar"
+         [[ ! "$yn" =~ (S|s) ]] && {
+	          echo "Debera removerlo manualmente para continuar"
             exit 0
          }
          sudo apt remove -y luarocks${ver} || exit 1
       }
    done
- 
+
    echo "Descargando luarocks"
    cd /opt/src
    rm -f luarocks-${LRVER}.tar.gz || exit 1
@@ -60,11 +67,14 @@ if [ "$OSNAME" == "Ubuntu" ] && [ "$RELEASN" == "16.04" ]
    for ver in "5.1" "5.2"
     do
       ./configure --lua-version=$ver --versioned-rocks-dir && make build && sudo make install && \
-      echo "Luarocks $ver instalado exitosamente" || { 
+      echo "Luarocks $ver instalado exitosamente" || {
          echo "ERROR: Luarocks $ver no se instaló"
          exit 1
       }
    done
+else
+   echo ""
+echo "Su sistema operativo no esta soportado: '$OSNAME $CODENM $RELEASN'"
 fi
 exit 0
 
