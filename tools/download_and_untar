@@ -1,0 +1,18 @@
+#!/bin/bash
+
+[[ "$1" == "" ]] && exit 1 || FILE="$1"
+[[ "$2" == "" ]] && exit 1 || URL="$2"
+[[ "$3" == "" ]] && exit 1 || FOLDER="$3"
+[[ "$4" == "" ]] && UNTAR="$FOLDER" || UNTAR="$4"
+wget -N "$URL"/"$FILE" -P "$FOLDER"
+[[ -f "$FOLDER"/"$FILE" ]] || { 
+   echo "no pudo descargarse '$FILE'"
+   exit 1 
+}
+if [ -d "$FOLDER"/"$UNTAR" ]; then
+  echo "'$FOLDER/$UNTAR' ya existe, archivos ya extraídos"
+else
+  mkdir "$FOLDER"/"$UNTAR" || exit 1
+  tar xzvf "$FOLDER"/"$FILE" -C "$FOLDER"/"$UNTAR" || exit 1
+fi
+exit 0

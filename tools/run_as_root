@@ -1,0 +1,22 @@
+#!/bin/bash
+
+OSNAME=`lsb_release -is`
+CODENM=`lsb_release -cs`
+RELEASN=`lsb_release -rs`
+
+[[ "$1" == "" ]] && exit 0 || COMMAND="$1"
+
+if [ "$OSNAME" == "Ubuntu" ]; then
+    sudo $COMMAND || { 
+        echo "'$COMMAND' falló"
+        exit 1
+    }
+elif [ "$OSNAME" == "Debian" ]; then
+    su root -c $COMMAND || { 
+        echo "'$COMMAND' falló"
+        exit 1
+    }
+else
+  echo "Su sistema operativo '$OSNAME' no esta soportado"
+  exit 1
+fi
