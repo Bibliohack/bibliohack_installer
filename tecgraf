@@ -18,7 +18,7 @@ CURRENT_USER="$USER"
 SRCDIR=/opt/src
 TECDIR=$SRCDIR/tecgraf
 
-DEPS="lua5.1 liblua5.1-0-dev lua5.2 liblua5.2-dev"
+DEPS="lua5.1 liblua5.1-0-dev lua5.2 liblua5.2-dev libfreetype6-dev" # libftgl-dev zlib1g-dev
 
 IUP_TAR=iup-${IUP_VER}_${KERNEL}_${TYPE}_lib.${TAR_EXT}
 IUPLUA51_TAR=iup-${IUP_VER}-Lua51_${KERNEL}_${TYPE}_lib.${TAR_EXT}
