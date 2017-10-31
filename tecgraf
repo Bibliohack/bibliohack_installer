@@ -2,6 +2,8 @@
 
 # chequeado en Ubuntu 16.04 OK
 
+[[ "$1" == "uninstall" ]] && { UNINSTALL=Yes; shift; }
+
 IUP_VER="3.23"
 CD_VER="5.11.1"
 IM_VER="3.12"
@@ -31,118 +33,165 @@ IMLUA51_TAR=im-${IM_VER}-Lua51_${KERNEL}_${TYPE}_lib.${TAR_EXT}
 IMLUA52_TAR=im-${IM_VER}-Lua52_${KERNEL}_${TYPE}_lib.${TAR_EXT}
 
 function run_bash {
-   echo ""
-   echo "ejecutando '$1' en '$PWD'..."
-   [[ -f "$1" ]] || { echo "error: no existe el script '$1' en '$PWD'"; return 1; }
-   ( yes | bash "$1" ) || echo "ATENCION: hubo errores en la ejecución '$1' en '$PWD'"
-   return 0
+    echo ""
+    echo "ejecutando '$1' en '$PWD'..."
+    [[ -f "$1" ]] || { 
+        echo "error: no existe el script '$1' en '$PWD'"
+        return 1
+    }
+    ( yes | bash "$1" ) \
+      || echo "ATENCION: hubo errores en la ejecución '$1' en '$PWD'"
+    # algunas librerias dan errores en la copia de algunos archivos
+    # sera por falta de actualizacion del script install?
+    return 0
 }
 
 function install_libs {
-   current_folder="$PWD"
-   for lua in "51" "52"; do
-
-       [[ "$lua" == "51" ]] && { export USE_LUA51=Yes; export USE_LUA52=""; }
-       [[ "$lua" == "52" ]] && { export USE_LUA52=Yes; export USE_LUA51=""; }
-
-       for tar in $IUP_TAR $CD_TAR $IM_TAR
-       do
-          dest=`basename $tar .$TAR_EXT`
-          cd "$TECDIR/$dest"
-          run_bash "install" || return 1
-          run_bash "install_dev" || return 1
-       done
-
-       for tar in $IUPLUA51_TAR $IPULUA52_TAR $CDLUA51_TAR $CDLUA52_TAR $IMLUA51_TAR $IMLUA52_TAR
-       do
-          dest=`basename $tar .$TAR_EXT`
-          cd "$TECDIR/$dest"
-          run_bash "install" || return 1
-          run_bash "install_dev" || return 1
-          run_bash "config_lua_module" || return 1
-       done
-   done
-   cd $current_folder
-   return 0
+    current_folder="$PWD"
+    for lua in "51" "52"; do
+        [[ "$lua" == "51" ]] && { export USE_LUA51=Yes; export USE_LUA52=""; }
+        [[ "$lua" == "52" ]] && { export USE_LUA52=Yes; export USE_LUA51=""; }
+        for tar in $IUP_TAR $CD_TAR $IM_TAR
+        do
+            dest=`basename $tar .$TAR_EXT`
+            cd "$TECDIR/$dest"
+            run_bash "install" || return 1
+            run_bash "install_dev" || return 1
+        done
+        for tar in $IUPLUA51_TAR $IPULUA52_TAR $CDLUA51_TAR $CDLUA52_TAR \
+                   $IMLUA51_TAR $IMLUA52_TAR
+        do
+            dest=`basename $tar .$TAR_EXT`
+            cd "$TECDIR/$dest"
+            run_bash "install" || return 1
+            run_bash "install_dev" || return 1
+            run_bash "config_lua_module" || return 1
+        done
+    done
+    cd $current_folder
+    return 0
 }
 
 function uninstall_libs {
-
-   for tar in $IUP_TAR $CD_TAR $IM_TAR
-   do
-      dest=`basename $tar .$TAR_EXT`
-      run_bash "$TECDIR/$dest/uninstall" || return 1
-   done
-
-   for tar in $IUPLUA51_TAR $IPULUA52_TAR $CDLUA51_TAR $CDLUA52_TAR $IMLUA51_TAR $IMLUA52_TAR
-   do
-      dest=`basename $tar .$TAR_EXT`
-      run_bash "$TECDIR/$dest/uninstall" || return 1
-   done
-   return 0
+    current_folder="$PWD"
+    for tar in $IUP_TAR $CD_TAR $IM_TAR
+    do
+        dest=`basename $tar .$TAR_EXT`
+        [[ -d "$TECDIR/$dest" ]] && {
+            cd "$TECDIR/$dest"
+            run_bash "uninstall" || return 1
+        } || echo "'$TECDIR/$dest' no existe, no se puede desinstalar"
+    done
+    for tar in $IUPLUA51_TAR $IPULUA52_TAR $CDLUA51_TAR $CDLUA52_TAR \
+               $IMLUA51_TAR $IMLUA52_TAR
+    do
+        dest=`basename $tar .$TAR_EXT`
+        [[ -d "$TECDIR/$dest" ]] && {
+            cd "$TECDIR/$dest"
+            run_bash "uninstall" || return 1
+        } || echo "'$TECDIR/$dest' no existe, no se puede desinstalar"
+    done
+    cd $current_folder
+    return 0
 }
+
+function install_tecgraf {
+    echo "Verificando directorio para instalación"
+    ./tools/check_src_dir $TECDIR && echo "OK" || {
+        echo "error: no se pudo crear o modificar '$TECDIR'"
+        exit 1
+    }
+
+    if ! ./tools/check_pkgs $DEPS; then
+        if [ "root" != "$CURRENT_USER" ]; then
+            echo "para instalar paquetes con apt-get es necesario hacerse root..."
+            # todo check if deb-src enabled
+            ./tools/run_as_root "apt-get install $DEPS" || { 
+                echo "error al instalar con apt-get"
+                exit 1
+            }
+        else
+            apt-get install $DEPS || { 
+                echo "error al instalar con apt-get"
+                exit 1
+            }
+        fi
+    fi
+
+    for tar in $IUP_TAR $IUPLUA51_TAR $IPULUA52_TAR \
+               $CD_TAR  $CDLUA51_TAR  $CDLUA52_TAR \
+               $IM_TAR  $IMLUA51_TAR  $IMLUA52_TAR
+    do
+        dest=`basename $tar .$TAR_EXT`
+        echo "descargando '$tar' para instalar en '$dest'"
+        ./tools/download_and_untar $tar $URL $TECDIR $dest || exit 1
+    done
+    if [ "root" != "$CURRENT_USER" ]
+     then
+        echo ""
+        echo -n "para instalar iup, cd y im en el sistema es "
+        echo "necesario hacerse root..."
+        ./tools/run_as_root "$OWN_PATH install_libs" || { 
+            echo "install_libs falló"
+            exit 1
+        }
+    else
+       install_libs
+    fi
+}
+
+function uninstall_tecgraf {
+    if [ "root" != "$CURRENT_USER" ]
+     then
+        echo ""
+        echo -n "para desinstalar iup, cd y im en el sistema es "
+        echo "necesario hacerse root..."
+        ./tools/run_as_root "$OWN_PATH uninstall_libs" || { 
+            echo "uninstall_libs falló"
+            exit 1
+        }
+    else
+       uninstall_libs
+    fi
+}
+
+function test_tecgraf {
+    echo ""
+    echo "Verificando instalacion..."
+    for lib in 'iup' 'cd' 'im'; do
+        lua5.1 -e "require '${lib}lua'" 2>/dev/null \
+          && echo "lua5.1: ${lib}lua instalado OK!" \
+          || echo "lua5.1: ${lib}lua NO instalado"
+
+        lua5.2 -e "require '${lib}lua'" 2>/dev/null \
+          && echo "lua5.2: ${lib}lua instalado OK!" \
+          || echo "lua5.2: ${lib}lua NO instalado"
+    done
+}
+
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = #
 
 if [ "$1" == "" ]
  then
-    echo "Verificando directorio para instalación"
-   ./tools/check_src_dir $TECDIR && echo "OK" || {
-       echo "error: no se pudo crear o modificar '$TECDIR'"
-       exit 1
-   }
-
-   if ! ./tools/check_pkgs $DEPS; then
-       if [ "root" != "$CURRENT_USER" ]; then
-          echo "para instalar paquetes con apt-get es necesario hacerse root..."
-          # todo check if deb-src enabled
-          ./tools/run_as_root "apt-get install $DEPS" || { echo "error al instalar con apt-get"; exit 1;}
-       else
-          apt-get install $DEPS || { echo "error al instalar con apt-get"; exit 1;}
-       fi
-   fi
-
-   for tar in $IUP_TAR $IUPLUA51_TAR $IPULUA52_TAR \
-              $CD_TAR  $CDLUA51_TAR  $CDLUA52_TAR \
-              $IM_TAR  $IMLUA51_TAR  $IMLUA52_TAR
-   do
-      dest=`basename $tar .$TAR_EXT`
-      echo "descargando '$tar' para instalar en '$dest'"
-      ./tools/download_and_untar $tar $URL $TECDIR $dest || exit 1
-   done
-
-   if [ "root" != "$CURRENT_USER" ]
-    then
-      echo ""
-      echo "para instalar iup, cd y im en el sistema es necesario hacerse root..."
-      ./tools/run_as_root "$OWN_PATH install_libs" || { echo "install_libs falló"; exit 1;}
-   else
-      install_libs
-   fi
-
-   echo ""
-   echo "Verificando instalacion..."
-   for lib in 'iup' 'cd' 'im'; do
-       lua5.1 -e "require '${lib}lua'" 2>/dev/null &&\
-         echo "lua5.1: ${lib}lua instalado OK!" ||\
-         echo "lua5.1: FALLO instalacion de ${lib}lua"
-
-       lua5.2 -e "require '${lib}lua'" 2>/dev/null &&\
-         echo "lua5.2: ${lib}lua instalado OK!" ||\
-         echo "lua5.2: FALLO instalacion de ${lib}lua"
-   done
-
+    if [ "$UNINSTALL" == "" ]; then
+        install_tecgraf
+    else
+        uninstall_tecgraf
+    fi
+    test_tecgraf
 else
-   case "$1" in
-     install_libs)
-       install_libs 
-     ;;
-     uninstall_libs)
-       uninstall_libs
-     ;;
-     *)
-       echo "algo fallo!"
-       exit 1
-     ;;
-   esac
+    case "$1" in
+        install_libs)
+            install_libs 
+        ;;
+        uninstall_libs)
+            uninstall_libs
+        ;;
+        *)
+            echo "algo fallo!"
+        exit 1
+        ;;
+    esac
 fi
 
 exit 0
