@@ -13,9 +13,10 @@ function check_deb_src() {
   [[ -f "$1" ]] || return 1
   [[ "$2" == "" ]] && return 1
   CODENAME="$2"; SOURCES="$1"
-  if ! grep -q "^deb-src .* $CODENAME main " $SOURCES ${SOURCES}.d/* 2>/dev/null
+  echo "verificando repositorios en: $CODENAME $SOURCES"
+  if ! grep -q "^deb-src .* $CODENAME main" $SOURCES ${SOURCES}.d/* 2>/dev/null
    then
-    echo "Debe tener habilitado el repositorio de paquetes fuente (deb-src) de Ubuntu $CODENAME"
+    echo "Debe tener habilitado el repositorio de paquetes fuente (deb-src) de $OSNAME $CODENAME"
     echo "¿Desea habilitarlo? [S/n]"
     read -p "> " yn
     if [[ ! "$yn" =~ (S|s) ]]; then echo "Debera activarlos manualmente para continuar"; return 1; fi
@@ -57,6 +58,8 @@ OSNAME=`lsb_release -is`
 CODENM=`lsb_release -cs`
 RELEASN=`lsb_release -rs`
 
+echo "Instalando en: $OSNAME $RELEASN $CODENM"
+
 check_deb_src /etc/apt/sources.list "$CODENM" || { echo ":("; exit 0; }
 
 echo "Instalando scantailor-enhanced en $OSNAME $RELEASN"
@@ -64,11 +67,18 @@ echo "Instalando scantailor-enhanced en $OSNAME $RELEASN"
 if [ "$RELEASN" == '16.04' ] && [ "$OSNAME" == 'Ubuntu' ]
  then
    # apt-rdepends -b --follow=DEPENDS scantailor
+   SCANTAILOR_DEV_DEP='cmake build-essential libboost1.49-all-dev libjpeg8-dev libtiff5-dev libpng12-dev libqt4-dev zlib1g-dev  libxrender-dev txt2man xauth xvfb git subversion'
+   # apt-cache depends scantailor
+   SCANTAILOR_BIN_DEP='libc6 libgcc1 libjpeg8 libpng12-0 libqt4-xml libqtcore4 libqtgui4 libstdc++6 libtiff5 libxrender1' # libjpeg8-dev libjpeg-dev libtiff5-dev libpng12-dev zlib1g-dev libboost-all-dev 
+elif  [ "$RELEASN" == '7.11' ] && [ "$OSNAME" == 'Debian' ]
+ then
+   # apt-rdepends -b --follow=DEPENDS scantailor
    SCANTAILOR_DEV_DEP='cmake build-essential libboost-dev libboost-test-dev libjpeg-dev libpng-dev libqt4-dev libqt4-opengl-dev libtiff-dev libxrender-dev txt2man xauth xvfb git subversion' # checkinstall
    # apt-cache depends scantailor
    SCANTAILOR_BIN_DEP='libc6 libgcc1 libjpeg8 libpng12-0 libqt4-xml libqtcore4 libqtgui4 libstdc++6 libtiff5 libxrender1' # libjpeg8-dev libjpeg-dev libtiff5-dev libpng12-dev zlib1g-dev libboost-all-dev 
+
 else
-  echo "Su sistema operativo '$OSNAME' '$CODEN' '$RELEASN', no esta soportado"
+  echo "Su sistema operativo '$OSNAME' '$CODENM' '$RELEASN', no esta soportado"
   exit 0
 fi
 
@@ -86,7 +96,13 @@ echo "Comprobando directorio para compilación"
 cd /opt/src
 
 echo "Clonando repositorio Scantailor en $SCANTAILOR_SRC_DIR"
-git clone -b enhanced https://github.com/d-a-l/scantailor.git $SCANTAILOR_SRC_DIR
+if [ "$RELEASN" == '16.04' ] && [ "$OSNAME" == 'Ubuntu' ]
+ then
+   git clone -b enhanced https://github.com/d-a-l/scantailor.git $SCANTAILOR_SRC_DIR
+elif  [ "$RELEASN" == '7.11' ] && [ "$OSNAME" == 'Debian' ]
+ then
+   git clone -b enhanced https://github.com/scantailor/scantailor.git $SCANTAILOR_SRC_DIR
+fi
 
 if [[ -d "$SCANTAILOR_SRC_DIR" ]]
  then
