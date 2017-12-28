@@ -5,14 +5,15 @@ CODENM=`lsb_release -cs`
 RELEASN=`lsb_release -rs`
 
 [[ "$1" == "" ]] && exit 0 || COMMAND="$1"
+[[ "$2" == "" ]] || ARGS="$2"
 
 if [ "$OSNAME" == "Ubuntu" ]; then
-    sudo $COMMAND || { 
+    sudo $COMMAND $ARGS || { 
         echo "'$COMMAND' falló"
         exit 1
     }
 elif [ "$OSNAME" == "Debian" ]; then
-    su root -c $COMMAND || { 
+    su -c "$COMMAND $ARGS" root || { 
         echo "'$COMMAND' falló"
         exit 1
     }
