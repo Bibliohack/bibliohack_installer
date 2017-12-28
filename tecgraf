@@ -1,15 +1,22 @@
 #!/bin/bash
 
-# chequeado en Ubuntu 16.04 OK
+# chequeado en Ubuntu 16.04 OK - volver a chequear con las modificaciones!
+# chequeado en Debian Wheezy 3.8/5.6.1/3.8.2 - no se instala para LUA 5.2, porque para esas versiones no corre la variable USE_LUA51
+# TODO: debian no funciona run_as_root -> probablmente no este pasando los parametros que van en $COMMAND en:  su root -c $COMMAND
 
 [[ "$1" == "uninstall" ]] && { UNINSTALL=Yes; shift; }
 
-IUP_VER="3.23"
-CD_VER="5.11.1"
-IM_VER="3.12"
-KERNEL="Linux44"
+IUP_VER="3.8"        #"3.19.1"  #"3.23"
+IUPLUA_EXTRA_TAR=""  #'true'	
+CD_VER="5.6.1"       #"5.10"    #"5.11.1"
+CDLUA_EXTRA_TAR=""	 #'true'
+IM_VER="3.8.2"       #"3.11"    #"3.12"
+IMLUA_EXTRA_TAR=""   #'true'
+NOT_INSTALL_LUA52="Yes"
+
+KERNEL="Linux32"            #"Linux44"
 TAR_EXT="tar.gz"
-TYPE="64"
+TYPE=""       #""        #"_64"
 URL='http://codex.bibliohack.org/media/files/tecgraf'
 
 OWN_PATH="$PWD/$0"
@@ -20,18 +27,43 @@ TECDIR=$SRCDIR/tecgraf
 
 DEPS="lua5.1 liblua5.1-0-dev lua5.2 liblua5.2-dev libfreetype6-dev" # libftgl-dev zlib1g-dev
 
-IUP_TAR=iup-${IUP_VER}_${KERNEL}_${TYPE}_lib.${TAR_EXT}
-IUPLUA51_TAR=iup-${IUP_VER}-Lua51_${KERNEL}_${TYPE}_lib.${TAR_EXT}
-IPULUA52_TAR=iup-${IUP_VER}-Lua52_${KERNEL}_${TYPE}_lib.${TAR_EXT}
+IUP_TAR=iup-${IUP_VER}_${KERNEL}${TYPE}_lib.${TAR_EXT}
+if [ "$IUPLUA_EXTRA_TAR" == "true" ]
+ then
+   IUPLUA51_TAR=iup-${IUP_VER}-Lua51_${KERNEL}${TYPE}_lib.${TAR_EXT}
+   IPULUA52_TAR=iup-${IUP_VER}-Lua52_${KERNEL}${TYPE}_lib.${TAR_EXT}
+else
+   IUPLUA_FOLDER=`basename $IUP_TAR .$TAR_EXT`
+fi
 
-CD_TAR=cd-${CD_VER}_${KERNEL}_${TYPE}_lib.${TAR_EXT}
-CDLUA51_TAR=cd-${CD_VER}-Lua51_${KERNEL}_${TYPE}_lib.${TAR_EXT}
-CDLUA52_TAR=cd-${CD_VER}-Lua52_${KERNEL}_${TYPE}_lib.${TAR_EXT}
+CD_TAR=cd-${CD_VER}_${KERNEL}${TYPE}_lib.${TAR_EXT}
+if [ "$CDLUA_EXTRA_TAR" == "true" ]
+ then
+   CDLUA51_TAR=cd-${CD_VER}-Lua51_${KERNEL}${TYPE}_lib.${TAR_EXT}
+   CDLUA52_TAR=cd-${CD_VER}-Lua52_${KERNEL}${TYPE}_lib.${TAR_EXT}
+ else
+   CDLUA_FOLDER=`basename $CD_TAR .$TAR_EXT`
+fi
 
-IM_TAR=im-${IM_VER}_${KERNEL}_${TYPE}_lib.${TAR_EXT}
-IMLUA51_TAR=im-${IM_VER}-Lua51_${KERNEL}_${TYPE}_lib.${TAR_EXT}
-IMLUA52_TAR=im-${IM_VER}-Lua52_${KERNEL}_${TYPE}_lib.${TAR_EXT}
+IM_TAR=im-${IM_VER}_${KERNEL}${TYPE}_lib.${TAR_EXT}
+if [ "$IMLUA_EXTRA_TAR" == 'true' ]
+ then
+   IMLUA51_TAR=im-${IM_VER}-Lua51_${KERNEL}${TYPE}_lib.${TAR_EXT}
+   IMLUA52_TAR=im-${IM_VER}-Lua52_${KERNEL}${TYPE}_lib.${TAR_EXT}
+ else
+   IMLUA_FOLDER=`basename $IM_TAR .$TAR_EXT`
+fi
 
+echo $IUP_TAR
+echo $IUPLUA51_TAR
+echo $IPULUA52_TAR
+echo $CD_TAR
+echo $CDLUA51_TAR
+echo $CDLUA52_TAR
+echo $IM_TAR
+echo $IMLUA51_TAR
+echo $IMLUA52_TAR
+#exit 1
 function run_bash {
     echo ""
     echo "ejecutando '$1' en '$PWD'..."
@@ -48,25 +80,69 @@ function run_bash {
 
 function install_libs {
     current_folder="$PWD"
-    for lua in "51" "52"; do
+    # verificar si no es necesario correr estos script con la variable USE_LUA51 o USE_LUA52
+    for tar in $IUP_TAR $CD_TAR $IM_TAR
+    do
+        dest=`basename $tar .$TAR_EXT`
+        cd "$TECDIR/$dest"
+        run_bash "install" || return 1
+        run_bash "install_dev" || return 1
+    done
+    if [ "$NOT_INSTALL_LUA52" == "Yes" ]
+     then
+      lua_vers=( '51' )
+    else
+      lua_vers=( '51' '52' )
+    fi
+    for lua in "${lua_vers[@]}"; do
+
         [[ "$lua" == "51" ]] && { export USE_LUA51=Yes; export USE_LUA52=""; }
         [[ "$lua" == "52" ]] && { export USE_LUA52=Yes; export USE_LUA51=""; }
-        for tar in $IUP_TAR $CD_TAR $IM_TAR
-        do
+
+        if [ "$IUPLUA_EXTRA_TAR" == 'true' ]
+         then
+            [[ "$lua" == "51" ]] && tar=$IUPLUA51_TAR 
+            [[ "$lua" == "52" ]] && tar=$IUPLUA52_TAR 
             dest=`basename $tar .$TAR_EXT`
             cd "$TECDIR/$dest"
-            run_bash "install" || return 1
-            run_bash "install_dev" || return 1
-        done
-        for tar in $IUPLUA51_TAR $IPULUA52_TAR $CDLUA51_TAR $CDLUA52_TAR \
-                   $IMLUA51_TAR $IMLUA52_TAR
-        do
-            dest=`basename $tar .$TAR_EXT`
-            cd "$TECDIR/$dest"
-            run_bash "install" || return 1
-            run_bash "install_dev" || return 1
+            run_bash "install" || return 1 # esto es necesario?
+            run_bash "install_dev" || return 1 # esto es necesario?
             run_bash "config_lua_module" || return 1
-        done
+        else 
+            dest=$IUPLUA_FOLDER
+            cd "$TECDIR/$dest"
+            run_bash "config_lua_module" || return 1
+        fi
+
+        if [ "$CDLUA_EXTRA_TAR" == 'true' ]
+         then
+            [[ "$lua" == "51" ]] && tar=$CDLUA51_TAR 
+            [[ "$lua" == "52" ]] && tar=$CDLUA52_TAR 
+            dest=`basename $tar .$TAR_EXT`
+            cd "$TECDIR/$dest"
+            run_bash "install" || return 1 # esto es necesario?
+            run_bash "install_dev" || return 1 # esto es necesario?
+            run_bash "config_lua_module" || return 1
+        else 
+             dest=$CDLUA_FOLDER
+             cd "$TECDIR/$dest"
+             run_bash "config_lua_module" || return 1
+        fi
+
+        if [ "$IMLUA_EXTRA_TAR" == 'true' ]
+         then
+            [[ "$lua" == "51" ]] && tar=$IMLUA51_TAR 
+            [[ "$lua" == "52" ]] && tar=$IMLUA52_TAR 
+            dest=`basename $tar .$TAR_EXT`
+            cd "$TECDIR/$dest"
+            run_bash "install" || return 1 # esto es necesario?
+            run_bash "install_dev" || return 1 # esto es necesario?
+            run_bash "config_lua_module" || return 1
+        else 
+            dest=$IMLUA_FOLDER
+            cd "$TECDIR/$dest"
+            run_bash "config_lua_module" || return 1
+        fi
     done
     cd $current_folder
     return 0
@@ -106,7 +182,7 @@ function install_tecgraf {
         if [ "root" != "$CURRENT_USER" ]; then
             echo "para instalar paquetes con apt-get es necesario hacerse root..."
             # todo check if deb-src enabled
-            ./tools/run_as_root "apt-get install $DEPS" || { 
+            ./tools/run_as_root "apt-get" "install $DEPS" || { 
                 echo "error al instalar con apt-get"
                 exit 1
             }
@@ -131,7 +207,7 @@ function install_tecgraf {
         echo ""
         echo -n "para instalar iup, cd y im en el sistema es "
         echo "necesario hacerse root..."
-        ./tools/run_as_root "$OWN_PATH install_libs" || { 
+        ./tools/run_as_root "$OWN_PATH" "install_libs" || { 
             echo "install_libs falló"
             exit 1
         }
@@ -146,7 +222,7 @@ function uninstall_tecgraf {
         echo ""
         echo -n "para desinstalar iup, cd y im en el sistema es "
         echo "necesario hacerse root..."
-        ./tools/run_as_root "$OWN_PATH uninstall_libs" || { 
+        ./tools/run_as_root "$OWN_PATH" "uninstall_libs" || { 
             echo "uninstall_libs falló"
             exit 1
         }
@@ -162,15 +238,17 @@ function test_tecgraf {
         lua5.1 -e "require '${lib}lua'" 2>/dev/null \
           && echo "lua5.1: ${lib}lua instalado OK!" \
           || echo "lua5.1: ${lib}lua NO instalado"
-
-        lua5.2 -e "require '${lib}lua'" 2>/dev/null \
-          && echo "lua5.2: ${lib}lua instalado OK!" \
-          || echo "lua5.2: ${lib}lua NO instalado"
+        if [ "$NOT_INSTALL_LUA52" != "Yes" ]
+          then
+            lua5.2 -e "require '${lib}lua'" 2>/dev/null \
+              && echo "lua5.2: ${lib}lua instalado OK!" \
+              || echo "lua5.2: ${lib}lua NO instalado"
+        fi
     done
 }
 
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = #
-
+echo "parametros ---> $1"
 if [ "$1" == "" ]
  then
     if [ "$UNINSTALL" == "" ]; then
