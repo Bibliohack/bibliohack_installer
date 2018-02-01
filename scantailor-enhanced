@@ -67,7 +67,7 @@ echo "Instalando scantailor-enhanced en $OSNAME $RELEASN"
 if [ "$RELEASN" == '16.04' ] && [ "$OSNAME" == 'Ubuntu' ]
  then
    # apt-rdepends -b --follow=DEPENDS scantailor
-   SCANTAILOR_DEV_DEP='cmake build-essential libboost1.49-all-dev libjpeg8-dev libtiff5-dev libpng12-dev libqt4-dev zlib1g-dev  libxrender-dev txt2man xauth xvfb git subversion'
+   SCANTAILOR_DEV_DEP='cmake build-essential libboost-all-dev libjpeg8-dev libtiff5-dev libpng12-dev libqt4-dev zlib1g-dev libxrender-dev txt2man xauth xvfb git subversion' 
    # apt-cache depends scantailor
    SCANTAILOR_BIN_DEP='libc6 libgcc1 libjpeg8 libpng12-0 libqt4-xml libqtcore4 libqtgui4 libstdc++6 libtiff5 libxrender1' # libjpeg8-dev libjpeg-dev libtiff5-dev libpng12-dev zlib1g-dev libboost-all-dev 
 elif  [ "$RELEASN" == '7.11' ] && [ "$OSNAME" == 'Debian' ]
