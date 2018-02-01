@@ -293,6 +293,10 @@ function test_tecgraf {
     done
 }
 
+# TODO test_tecgraf_ver
+# lua5.1 -e "require '${lib}lua'; print(${lib}.Version())"
+# (comparar resultado con la version del profile ingresado, ej: $IUP_VER)
+
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = #
 
 [[ "`uname -o`" == "GNU/Linux" ]] || {
