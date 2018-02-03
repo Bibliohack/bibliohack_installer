@@ -1,13 +1,10 @@
 #!/bin/bash
 
-# USO: 
+# USO:
 #    ./tecgraf           -> instala iup/cd/im
 #    ./tecgraf uninstall -> desinstala iup/cd/im
 #    ./tecgraf luatest   -> test si funciona iup/cd/im en lua
 #    nota: el script siempre pregunta por un perfil de instalacion
-
-# las opciones 'install_libs' o 'uninstall_libs' las ejecuta el propio script cuando
-# necesita volver a ejecutarse como root
 
 # chequeado en Ubuntu 16.04 OK perfil 'd', no instala LUA 5.2
 
@@ -19,7 +16,7 @@
 
 function set_tecgraf_profile {
 
-    if [[ "$1" =~ ^profile=[d|u]*$ ]] 
+    if [[ "$1" =~ ^profile=[d|u]*$ ]]
      then
        profile="${1#*=}"
        echo "perfil de intalacion: '$profile'"
@@ -28,11 +25,12 @@ function set_tecgraf_profile {
       echo " - 'd' para versión dalclick"
       echo " - 'u' para última versión"
       echo " - 's' para salir"
-      echo "(por defecto 'd')" 
+      echo "(por defecto 'd')"
       read -p ">> " sel
+      echo ""
 
       if [ "$sel" == "u" ]; then profile="u"
-      elif [ "$sel" == "s" ]; then echo "Eligió salir."; exit 0 
+      elif [ "$sel" == "s" ]; then echo "Eligió salir."; exit 0
       else profile="d"
       fi
       PRINT_SELEC="Yes"
@@ -40,9 +38,10 @@ function set_tecgraf_profile {
 
     if [ "$profile" == "u" ]
      then
-      [[ "$PRINT_SELEC" == "Yes" ]] && echo "Configurando versiones de los paquetes tecgraf para 'última versión' (u)"
+      [[ "$PRINT_SELEC" == "Yes" ]] && \
+        echo -e "Configurando versiones de los paquetes tecgraf para 'última versión' (u)\n"
       IUP_VER="3.23"
-      IUPLUA_EXTRA_TAR='true'	
+      IUPLUA_EXTRA_TAR='true'
       CD_VER="5.11.1"
       CDLUA_EXTRA_TAR='true'
       IM_VER="3.12"
@@ -50,9 +49,10 @@ function set_tecgraf_profile {
       # NOT_INSTALL_LUA52="Yes"
     elif [ "$profile" == "d" ]
      then
-      [[ "$PRINT_SELEC" == "Yes" ]] && echo "Configurando versiones de los paquetes tecgraf para 'dalclick' (d)"
+      [[ "$PRINT_SELEC" == "Yes" ]] && \
+        echo -e "Configurando versiones de los paquetes tecgraf para 'dalclick' (d)\n"
       IUP_VER="3.8"           #"3.19.1"
-      IUPLUA_EXTRA_TAR=""     #'true'	
+      IUPLUA_EXTRA_TAR=""     #'true'
       CD_VER="5.6.1"          #"5.10"
       CDLUA_EXTRA_TAR=""      #'true'
       IM_VER="3.8.2"          #"3.11"
@@ -96,42 +96,31 @@ function set_packages_param {
     fi
 
     [[ "$PRINT_SELEC" == "Yes" ]] && {
-        echo "iup: '$IUP_TAR'"
+        echo -e "Paquetes a instalar:\n"
+        echo "iup:      '$IUP_TAR'"
         echo "iuplua51: '$IUPLUA51_TAR'"
         echo "iuplua52: '$IPULUA52_TAR'"
-        echo "cd: '$CD_TAR'"
-        echo "cdlua51: '$CDLUA51_TAR'"
-        echo "cdlua52: '$CDLUA52_TAR'"
-        echo "im: '$IM_TAR'"
-        echo "imlua51: '$IMLUA51_TAR'"
-        echo "imlua52: '$IMLUA52_TAR'"
-        sleep 2
+        echo "cd:       '$CD_TAR'"
+        echo "cdlua51:  '$CDLUA51_TAR'"
+        echo "cdlua52:  '$CDLUA52_TAR'"
+        echo "im:       '$IM_TAR'"
+        echo "imlua51:  '$IMLUA51_TAR'"
+        echo "imlua52:  '$IMLUA52_TAR'"
+        echo ""
+        echo "Presione ENTER para continuar"
+        echo "o CONTROL+C para cancelar"
+        read -p ">> " continuar
     }
-}
-
-function run_bash {
-    echo ""
-    echo "ejecutando '$1' en '$PWD'..."
-    [[ -f "$1" ]] || { 
-        echo "error: no existe el script '$1' en '$PWD'"
-        return 1
-    }
-    ( yes | bash "$1" ) \
-      || echo "ATENCION: hubo errores en la ejecución '$1' en '$PWD'"
-    # algunas librerias dan errores en la copia de algunos archivos
-    # sera por falta de actualizacion del script install?
-    return 0
 }
 
 function install_libs {
     current_folder="$PWD"
+    items=()
     # verificar si no es necesario correr estos script con la variable USE_LUA51 o USE_LUA52
     for tar in $IUP_TAR $CD_TAR $IM_TAR
     do
         dest=`basename $tar .$TAR_EXT`
-        cd "$TECDIR/$dest"
-        run_bash "install" || return 1
-        run_bash "install_dev" || return 1
+        items+=("$TECDIR/$dest;install install_dev;")
     done
     if [ "$NOT_INSTALL_LUA52" == "Yes" ]
      then
@@ -141,66 +130,69 @@ function install_libs {
     fi
     for lua in "${lua_vers[@]}"; do
 
-        [[ "$lua" == "51" ]] && { export USE_LUA51=Yes; export USE_LUA52=""; }
-        [[ "$lua" == "52" ]] && { export USE_LUA52=Yes; export USE_LUA51=""; }
-
         if [ "$IUPLUA_EXTRA_TAR" == 'true' ]
          then
-            [[ "$lua" == "51" ]] && tar=$IUPLUA51_TAR 
-            [[ "$lua" == "52" ]] && tar=$IUPLUA52_TAR 
+            [[ "$lua" == "51" ]] && tar=$IUPLUA51_TAR
+            [[ "$lua" == "52" ]] && tar=$IUPLUA52_TAR
             dest=`basename $tar .$TAR_EXT`
-            cd "$TECDIR/$dest"
-            run_bash "install" || return 1 # esto es necesario?
-            run_bash "install_dev" || return 1 # esto es necesario?
-            run_bash "config_lua_module" || return 1
-        else 
+            items+=("$TECDIR/$dest;install install_dev config_lua_module;$lua")
+        else
             dest=$IUPLUA_FOLDER
-            cd "$TECDIR/$dest"
-            run_bash "config_lua_module" || return 1
+            items+=("$TECDIR/$dest;config_lua_module;$lua")
         fi
 
         if [ "$CDLUA_EXTRA_TAR" == 'true' ]
          then
-            [[ "$lua" == "51" ]] && tar=$CDLUA51_TAR 
-            [[ "$lua" == "52" ]] && tar=$CDLUA52_TAR 
+            [[ "$lua" == "51" ]] && tar=$CDLUA51_TAR
+            [[ "$lua" == "52" ]] && tar=$CDLUA52_TAR
             dest=`basename $tar .$TAR_EXT`
-            cd "$TECDIR/$dest"
-            run_bash "install" || return 1 # esto es necesario?
-            run_bash "install_dev" || return 1 # esto es necesario?
-            run_bash "config_lua_module" || return 1
-        else 
-             dest=$CDLUA_FOLDER
-             cd "$TECDIR/$dest"
-             run_bash "config_lua_module" || return 1
+            items+=("$TECDIR/$dest;install install_dev config_lua_module;$lua")
+        else
+            dest=$CDLUA_FOLDER
+            items+=("$TECDIR/$dest;config_lua_module;$lua")
         fi
 
         if [ "$IMLUA_EXTRA_TAR" == 'true' ]
          then
-            [[ "$lua" == "51" ]] && tar=$IMLUA51_TAR 
-            [[ "$lua" == "52" ]] && tar=$IMLUA52_TAR 
+            [[ "$lua" == "51" ]] && tar=$IMLUA51_TAR
+            [[ "$lua" == "52" ]] && tar=$IMLUA52_TAR
             dest=`basename $tar .$TAR_EXT`
-            cd "$TECDIR/$dest"
-            run_bash "install" || return 1 # esto es necesario?
-            run_bash "install_dev" || return 1 # esto es necesario?
-            run_bash "config_lua_module" || return 1
-        else 
+            items+=("$TECDIR/$dest;install install_dev config_lua_module;$lua")
+        else
             dest=$IMLUA_FOLDER
-            cd "$TECDIR/$dest"
-            run_bash "config_lua_module" || return 1
+            items+=("$TECDIR/$dest;config_lua_module;$lua")
         fi
     done
+
+    if [ "root" != "$CURRENT_USER" ]
+     then
+        echo ""
+        echo -n "para instalar iup, cd y im en el sistema es "
+        echo "necesario hacerse root..."
+        ./tools/run_as_root ./tools/tecgraf/install_libs "${items[@]}" || {
+            echo "install_libs (root) falló"
+            return 1
+        }
+    else
+       ./tools/tecgraf/install_libs "${items[@]}"  || {
+           echo "install_libs falló"
+           return 1
+       }
+    fi
+
     cd $current_folder
     return 0
 }
 
 function uninstall_libs {
     current_folder="$PWD"
+    items=()
+
     for tar in $IUP_TAR $CD_TAR $IM_TAR
     do
         dest=`basename $tar .$TAR_EXT`
         [[ -d "$TECDIR/$dest" ]] && {
-            cd "$TECDIR/$dest"
-            run_bash "uninstall" || return 1
+            items+=("$TECDIR/$dest;uninstall;")
         } || echo "'$TECDIR/$dest' no existe, no se puede desinstalar"
     done
     for tar in $IUPLUA51_TAR $IPULUA52_TAR $CDLUA51_TAR $CDLUA52_TAR \
@@ -208,10 +200,26 @@ function uninstall_libs {
     do
         dest=`basename $tar .$TAR_EXT`
         [[ -d "$TECDIR/$dest" ]] && {
-            cd "$TECDIR/$dest"
-            run_bash "uninstall" || return 1
+            items+=("$TECDIR/$dest;uninstall;")
         } || echo "'$TECDIR/$dest' no existe, no se puede desinstalar"
     done
+
+    if [ "root" != "$CURRENT_USER" ]
+     then
+        echo ""
+        echo -n "para desinstalar iup, cd y im en el sistema es "
+        echo "necesario hacerse root..."
+        ./tools/run_as_root ./tools/tecgraf/install_libs "${items[@]}" || {
+            echo "uninstall_libs (root) falló"
+            return 1
+        }
+    else
+       ./tools/tecgraf/install_libs "${items[@]}"  || {
+           echo "install_libs falló"
+           return 1
+       }
+    fi
+
     cd $current_folder
     return 0
 }
@@ -227,12 +235,12 @@ function install_tecgraf {
         if [ "root" != "$CURRENT_USER" ]; then
             echo "para instalar paquetes con apt-get es necesario hacerse root..."
             # todo check if deb-src enabled
-            ./tools/run_as_root "apt-get" "install $DEPS" || { 
+            ./tools/run_as_root "apt-get install" "$DEPS" || {
                 echo "error al instalar con apt-get"
                 exit 1
             }
         else
-            apt-get install $DEPS || { 
+            apt-get install $DEPS || {
                 echo "error al instalar con apt-get"
                 exit 1
             }
@@ -247,50 +255,37 @@ function install_tecgraf {
         echo "descargando '$tar' para instalar en '$dest'"
         ./tools/download_and_untar $tar $URL $TECDIR $dest || exit 1
     done
-    if [ "root" != "$CURRENT_USER" ]
-     then
-        echo ""
-        echo -n "para instalar iup, cd y im en el sistema es "
-        echo "necesario hacerse root..."
-        ./tools/run_as_root "$OWN_PATH" "install_libs profile=$profile" || { 
-            echo "install_libs falló"
-            exit 1
-        }
-    else
-       install_libs
-    fi
-}
 
-function uninstall_tecgraf {
-    if [ "root" != "$CURRENT_USER" ]
-     then
-        echo ""
-        echo -n "para desinstalar iup, cd y im en el sistema es "
-        echo "necesario hacerse root..."
-        ./tools/run_as_root "$OWN_PATH" "uninstall_libs profile=$profile" || { 
-            echo "uninstall_libs falló"
-            exit 1
-        }
-    else
-       uninstall_libs
-    fi
+    install_libs || exit 1
 }
-
 function test_tecgraf {
     echo ""
     echo "Verificando instalacion..."
     fail_test=""
     for lib in 'iup' 'cd' 'im'; do
-        lua5.1 -e "require '${lib}lua'" 2>/dev/null \
-          && echo "lua5.1: ${lib}lua instalado OK!" \
-          || { echo "lua5.1: ${lib}lua NO instalado"; fail_test="Yes"; }
+        lua5.1 -e "require '${lib}lua'" 2>/dev/null && {
+          echo -n "lua5.1: ${lib}lua instalado OK! versión: "
+          eval echo \$${lib^^}_VER
+          echo -n "${lib}.Version()="
+          lua5.1 -e "require '${lib}lua'; print(${lib}.Version())"
+        } || { echo "lua5.1: ${lib}lua NO instalado"; fail_test="Yes"; }
         if [ "$NOT_INSTALL_LUA52" != "Yes" ]
           then
-            lua5.2 -e "require '${lib}lua'" 2>/dev/null \
-              && echo "lua5.2: ${lib}lua instalado OK!" \
-              || { echo "lua5.2: ${lib}lua NO instalado"; fail_test="Yes"; }
+            lua5.2 -e "require '${lib}lua'" 2>/dev/null && {
+              echo -n "lua5.2: ${lib}lua instalado OK! versión: "
+              eval echo \$${lib^^}_VER
+              echo -n "${lib}.Version()="
+              lua5.2 -e "require '${lib}lua'; print(${lib}.Version())"
+            } || { echo "lua5.2: ${lib}lua NO instalado"; fail_test="Yes"; }
         fi
     done
+}
+
+#TODO:
+function print_tecgraf_version {
+}
+#TODO:
+function get_tecgraf_paths {
 }
 
 # TODO test_tecgraf_ver
@@ -319,14 +314,8 @@ set_tecgraf_profile "$2"
 set_packages_param
 
 case "$1" in
-    install_libs)
-        install_libs 
-    ;;
-    uninstall_libs)
-        uninstall_libs
-    ;;
     uninstall)
-        uninstall_tecgraf
+        uninstall_libs
         test_tecgraf
     ;;
     '' | install_tecgraf)
@@ -344,4 +333,3 @@ case "$1" in
 esac
 
 exit 0
-

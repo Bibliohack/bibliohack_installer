@@ -1,0 +1,56 @@
+#!/bin/bash
+
+# test[0]="/opt/src/instaladores/tools/tecgraf/test/alfa;qwert;lua51"
+# test[1]="/opt/src/instaladores/tools/tecgraf/test/beta;qwert asdfg.sh;lua51"
+# ./install_libs "${test[@]}"
+
+LOG=""
+OWN=`basename "$0"`; OWN="[$OWN]"
+
+function run_bash {
+    echo "$OWN Ejecutando '$1' en '$PWD'..."
+    echo ""
+    [[ -f "$1" ]] || {
+        echo "$OWN ERROR: no existe el script '$1' en '$PWD'"
+        return 1
+    }
+    echo "DEBUG: bash $1"
+    ( yes | bash "$1" ) || {
+      LOG="${LOG}ATENCION: hubo errores en la ejecución '$1' en '$PWD'\n"
+    }
+    # Algunas librerías dan errores en la copia de algunos archivos
+    # ¿será por falta de actualización del script install?
+    echo ""
+    return 0
+}
+
+for i in "$@"
+do
+  IFS=';' read -ra arr <<< "$i"
+  FOLDER="${arr[0]}"
+  SCRIPTS="${arr[1]}"
+  LUAENV="${arr[2]}"
+
+  [[ "$LUAENV" == "lua51" ]] && {
+     export USE_LUA51=Yes; export USE_LUA52=""; echo "$OWN USE_LUA51=Yes";
+  }
+  [[ "$LUAENV" == "lua52" ]] && {
+     export USE_LUA52=Yes; export USE_LUA51=""; echo "$OWN USE_LUA52=Yes";
+  }
+  cd "$FOLDER"
+  for SCRIPT in $SCRIPTS
+   do
+    run_bash "$SCRIPT" || exit 1
+  done
+done
+
+echo ""
+[[ "$LOG" == "" ]] && {
+  echo "$OWN No se registraron errores."
+} || {
+  echo "$OWN ATENCION: Se registraron errores:"
+  echo ""
+  echo -e "$LOG"
+}
+
+exit 0
