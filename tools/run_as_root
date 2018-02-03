@@ -1,22 +1,51 @@
 #!/bin/bash
 
+# alternativas para recibir argumentos:
+# $1=comando
+# $1=comando $2=ARG_SIN_ESPACIO
+#    (activa 'modo string')
+# $1=comando $2="ARG_SIN_ESP1 ARG_SIN_ESP2 ARG_SIN_ESP3 .."
+#    (activa 'modo string')
+# $1=comando $2="ARG CON ESPACIOS 1" $3="ARG CON ESPACIOS 2" $4="ARG CON ESPACIOS 1" ..
+#    (activa 'modo array')
+
 OSNAME=`lsb_release -is`
 CODENM=`lsb_release -cs`
 RELEASN=`lsb_release -rs`
 
 [[ "$1" == "" ]] && exit 0 || COMMAND="$1"
-[[ "$2" == "" ]] || ARGS="$2"
+shift
+[[ "$1" ]] && [[ "$2" ]] && { ARGS=("$@"); ATYPE="array"; } || {
+   [[ "$1" ]] && { ARGS="$1"; ATYPE="string"; }
+}
 
 if [ "$OSNAME" == "Ubuntu" ]; then
-    sudo $COMMAND $ARGS || { 
-        echo "'$COMMAND' falló"
+  if [ "$ATYPE" == "array" ]; then
+    sudo $COMMAND "${ARGS[@]}" || {
+        echo "'$COMMAND' falló 1"
         exit 1
     }
+  else
+    sudo $COMMAND $ARGS || {
+        echo "'$COMMAND' falló 1"
+        exit 1
+    }
+  fi
 elif [ "$OSNAME" == "Debian" ]; then
-    su -c "$COMMAND $ARGS" root || { 
+  if [ "$ATYPE" == "array" ]; then
+    for ARG in "${ARGS[@]}"; do
+        QUOTED_ARGS="${QUOTED_ARGS}\"$ARG\" "
+    done
+    su -c "$COMMAND $QUOTED_ARGS" root || {
         echo "'$COMMAND' falló"
         exit 1
     }
+  else
+    su -c "$COMMAND $ARGS" root || {
+        echo "'$COMMAND' falló"
+        exit 1
+    }
+  fi
 else
   echo "Su sistema operativo '$OSNAME' no esta soportado"
   exit 1
