@@ -1,0 +1,136 @@
+#!/bin/bash
+
+# .chdkptp install|uninstall
+#    nota: el script siempre pregunta por un perfil de instalacion
+
+# ./chdkptp install|uninstall profile=d|u || echo "fail"
+
+function set_chdkptp_profile {
+
+    if [[ "$1" =~ ^profile=[d|u]*$ ]]
+     then
+       profile="${1#*=}"
+       echo "perfil de intalacion: '$profile'"
+    else
+      echo "Seleccione el perfil de instalación para CHDKPTP:"
+      echo " - 'd' para versión dalclick"
+      echo " - 'u' para última versión"
+      echo " - 's' para salir"
+      echo "(por defecto 'd')"
+      read -p ">> " sel
+      echo ""
+
+      if [ "$sel" == "u" ]; then profile="u"
+      elif [ "$sel" == "s" ]; then echo "Eligió salir."; exit 0
+      else profile="d"
+      fi
+      PRINT_SELEC="Yes"
+    fi
+
+    if [ "$profile" == "u" ]
+     then
+      [[ "$PRINT_SELEC" == "Yes" ]] && \
+        echo -e "Seleccionando version de CHDKPTP para 'última versión' (u)\n"
+      CHDKPTP_VER="461"
+      IUP_VER="3.8"
+      CD_VER="5.6.1"
+      IM_VER="3.8.2"
+    elif [ "$profile" == "d" ]
+     then
+      [[ "$PRINT_SELEC" == "Yes" ]] && \
+        echo -e "Seleccionando version de CHDKPTP para 'dalclick' (d)\n"
+        #TODO
+      CHDKPTP_VER=""
+      IUP_VER=""
+      CD_VER=""
+      IM_VER=""
+    else
+      echo "ERROR: profile = '$profile'"
+      exit 1
+    fi
+}
+
+function set_packages_param {
+    DEPS="libusb-1.0-0 libusb-dev  libusb-1.0-0-dev libreadline-dev libreadline6-dev libcairo2-dev subversion git" #liblua5.1-0 lua5.1 liblua5.1-0-dev lua5.2 liblua5.2-dev
+    # tecgraf deps "lua5.1 liblua5.1-0-dev lua5.2 liblua5.2-dev libfreetype6-dev" # libftgl-dev zlib1g-dev
+
+    [[ "$PRINT_SELEC" == "Yes" ]] && {
+        echo -e "Version a instalar:\n"
+        echo "chdkptp: '$CHDKPTP_VER'"
+        echo ""
+        echo "Presione ENTER para continuar"
+        echo "o CONTROL+C para cancelar"
+        read -p ">> " continuar
+    }
+}
+
+function install_chdkptp {
+    echo "Verificando directorio para instalación"
+    ./tools/check_src_dir $CHDKPTP_DIR && echo "OK" || {
+        echo "error: no se pudo crear o modificar '$CHDKPTP_DIR'"
+        exit 1
+    }
+
+    if ! ./tools/check_pkgs $DEPS; then
+        if [ "root" != "$CURRENT_USER" ]; then
+            echo "para instalar paquetes con apt-get es necesario hacerse root..."
+            # todo check if deb-src enabled
+            ./tools/run_as_root "apt-get install" "$DEPS" || {
+                echo "error al instalar con apt-get"
+                exit 1
+            }
+        else
+            apt-get install $DEPS || {
+                echo "error al instalar con apt-get"
+                exit 1
+            }
+        fi
+    fi
+    #  svn co http://subversion.assembla.com/svn/chdkptp/trunk chdkptp
+    #  cd CHDKPTP
+    #  get_tecgraf_paths -> generar $config_mk_file
+    #  echo "$config_mk_file" > config.mk
+    #  make
+}
+
+function test_chdkptp {
+}
+
+function check_tecgraf_installed { # tambien version!
+}
+
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = #
+
+[[ "`uname -o`" == "GNU/Linux" ]] || {
+   echo "Este script solo puede utilizarse en sistemas 'GNU/Linux'"
+   exit 1
+}
+#[[ "`uname -m`" == "x86_64" ]] && TYPE="_64" || TYPE=""
+
+OWN_PATH="$PWD/$0"
+CURRENT_USER="$USER"
+
+SRCDIR=/opt/src
+CHDKPTP_DIR=$SRCDIR/chdkptp
+
+set_chdkptp_profile "$2" # $2=profile=d\u
+set_packages_param
+
+case "$1" in
+    uninstall)
+    ;;
+    '' | install)
+        install_chdkptp
+        test_chdkptp
+        [[ "$fail_test" == "Yes" ]] && exit 1
+    ;;
+    test)
+        test_chdkptp
+        [[ "$fail_test" == "Yes" ]] && exit 1
+    ;;
+    *)
+        echo "ERROR: parametro desconocido '$1'"
+        exit 1
+esac
+
+exit 0
