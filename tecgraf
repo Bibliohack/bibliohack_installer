@@ -283,9 +283,30 @@ function test_tecgraf {
 
 #TODO:
 function print_tecgraf_version {
+  :
 }
 #TODO:
-function get_tecgraf_paths {
+function get_version {
+  [[ "$1" =~ ^(iup|im|cd)$ ]] && lib="$1" || { echo "ERROR: debug: get_version: valor no admitido: '$1'"; return 1; }
+  [[ -f "/usr/bin/lua5.1" ]] || { echo "ERROR: lua5.1 no instalado. Ejecutar 'tecgraf' en '/opt/src/instaladores'"; return 1; } #TODO chequear lua path para debian!!
+  lua5.1 -e "require '${lib}lua'" 2>/dev/null && {
+    lua5.1 -e "require '${lib}lua'; print(${lib}.Version())"
+    return 0
+  } || { echo "'${lib}' no instalado. Ejecutar 'tecgraf' en '/opt/src/instaladores'"; return 1; }
+}
+
+function get_path {
+  [[ "$1" =~ ^(iup|im|cd)$ ]] && lib="$1" || { echo "ERROR: debug: get_path: valor no admitido: '$1'"; return 1; }
+
+  VER=`get_version "${lib}"`
+  lib_path="${TECDIR}/${lib}-${VER}_${KERNEL}${TYPE}_lib"
+  [[ -d "${lib_path}" ]] && {
+    echo "${lib_path}"
+    return 0
+  } || {
+    echo "ERROR! no existe '${lib_path}' para la versión ${VER} de '${lib}'."
+    return 1
+  }
 }
 
 # TODO test_tecgraf_ver
@@ -310,15 +331,16 @@ CURRENT_USER="$USER"
 SRCDIR=/opt/src
 TECDIR=$SRCDIR/tecgraf
 
-set_tecgraf_profile "$2"
-set_packages_param
-
 case "$1" in
     uninstall)
+        set_tecgraf_profile "$2"
+        set_packages_param
         uninstall_libs
         test_tecgraf
     ;;
     '' | install_tecgraf)
+        set_tecgraf_profile "$2"
+        set_packages_param
         install_tecgraf
         test_tecgraf
         [[ "$fail_test" == "Yes" ]] && exit 1
@@ -327,6 +349,25 @@ case "$1" in
         test_tecgraf
         [[ "$fail_test" == "Yes" ]] && exit 1
     ;;
+    iup_ver)
+        echo `get_version 'iup'` || exit 1
+    ;;
+    cd_ver)
+        echo `get_version 'cd'` || exit 1
+    ;;
+    im_ver)
+        echo `get_version 'im'` || exit 1
+    ;;
+    iup_path)
+        echo `get_path 'iup'` || exit 1
+    ;;
+    cd_path)
+        echo `get_path 'cd'` || exit 1
+    ;;
+    im_path)
+        echo `get_path 'im'` || exit 1
+    ;;
+
     *)
         echo "ERROR: parametro desconocido '$1'"
         exit 1
