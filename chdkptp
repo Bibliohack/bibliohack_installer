@@ -31,19 +31,18 @@ function set_chdkptp_profile {
      then
       [[ "$PRINT_SELEC" == "Yes" ]] && \
         echo -e "Seleccionando version de CHDKPTP para 'última versión' (u)\n"
-      CHDKPTP_VER="461"
-      IUP_VER="3.8"
-      CD_VER="5.6.1"
-      IM_VER="3.8.2"
+      CHDKPTP_VER=""
+      IUP_VER="3.23"
+      CD_VER="5.11.1"
+      IM_VER="3.12"
     elif [ "$profile" == "d" ]
      then
       [[ "$PRINT_SELEC" == "Yes" ]] && \
         echo -e "Seleccionando version de CHDKPTP para 'dalclick' (d)\n"
-        #TODO
-      CHDKPTP_VER=""
-      IUP_VER=""
-      CD_VER=""
-      IM_VER=""
+      CHDKPTP_VER="461"
+      IUP_VER="3.8"
+      CD_VER="5.6.1"
+      IM_VER="3.8.2"
     else
       echo "ERROR: profile = '$profile'"
       exit 1
@@ -86,17 +85,92 @@ function install_chdkptp {
             }
         fi
     fi
-    #  svn co http://subversion.assembla.com/svn/chdkptp/trunk chdkptp
-    #  cd CHDKPTP
-    #  get_tecgraf_paths -> generar $config_mk_file
-    #  echo "$config_mk_file" > config.mk
-    #  make
+    check_tecgraf_ver || { echo "ERROR: dependencias insastifechas: librerías tecgraf. Ejecute '/opt/src/instaladores/tecgraf'"; exit 1; }
+    svn co http://subversion.assembla.com/svn/chdkptp/trunk "$CHDKPTP_DIR"
+    cd "$CHDKPTP_DIR"
+    if [ "${CHDKPTP_VER}" != "" ]; then
+      echo "revirtiendo a la versión '${CHDKPTP_VER}'..."
+      svn up -r${CHDKPTP_VER} || exit 1
+    fi
+    config_file=`get_config_file`
+    echo "$config_file" > config.mk
+    make && return 0 || return 1
+}
+
+function get_config_file {
+  IUP_LIB_DIR=`$TECGRAF_INSTALLER iup_path`
+  CD_LIB_DIR=`$TECGRAF_INSTALLER cd_path`
+  config_file_d="
+IUP_SUPPORT=1
+CD_SUPPORT=1
+CD_USE_PLUS=cairo
+PTPIP_SUPPORT=0
+
+LUA_INCLUDE_DIR=/usr/include/lua5.1
+LUA_LIB=lua5.1
+
+DEBUG=1
+
+IUP_LIB_DIR=${IUP_LIB_DIR}
+IUP_INCLUDE_DIR=${IUP_LIB_DIR}/include
+CD_LIB_DIR=${CD_LIB_DIR}
+CD_INCLUDE_DIR=${CD_LIB_DIR}/include
+"
+#TODO!! chequera config_file_u!!
+  config_file_u="
+IUP_SUPPORT=1
+CD_SUPPORT=1
+CD_USE_PLUS=cairo
+PTPIP_SUPPORT=0
+
+LUA_INCLUDE_DIR=/usr/include/lua5.1
+LUA_LIB=lua5.1
+
+DEBUG=1
+
+IUP_LIB_DIR=${IUP_LIB_DIR}
+IUP_INCLUDE_DIR=${IUP_LIB_DIR}/include
+CD_LIB_DIR=${CD_LIB_DIR}
+CD_INCLUDE_DIR=${CD_LIB_DIR}/include
+"
+if [ "$profile" == 'u' ]
+ then
+  echo "$config_file_u"
+  return 0
+elif  [ "$profile" == 'd' ]
+ then
+  echo "$config_file_d"
+  return 0
+else
+  return 1
+fi
 }
 
 function test_chdkptp {
+  # export LUA_PATH="./lua/?.lua
+  echo "TODO: test_chdkptp!!"
 }
 
-function check_tecgraf_installed { # tambien version!
+function check_tecgraf_ver { # tambien version!
+  fail=''
+  for lib in 'iup' 'cd' 'im'; do
+    if ${TECGRAF_INSTALLER} "${lib}_ver" > /dev/null 2>&1
+     then
+      required_ver=$( eval echo "\$${lib^^}_VER" )
+      installed_ver=`${TECGRAF_INSTALLER} "${lib}_ver"`
+      echo -n "${lib}: instalada:'$installed_ver' requerida:'$required_ver' .."
+      [[ "$installed_ver" == "$required_ver" ]] && {
+        echo "OK"
+      } || {
+        echo "FAIL"
+        fail="Yes"
+      }
+    else
+      echo "ERROR: '$lib' no instalada."
+      return 1
+    fi
+  done
+  [[ "$fail" == "Yes" ]] && return 1 || return 0
 }
 
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = #
@@ -109,7 +183,7 @@ function check_tecgraf_installed { # tambien version!
 
 OWN_PATH="$PWD/$0"
 CURRENT_USER="$USER"
-
+TECGRAF_INSTALLER="$PWD/tecgraf" # TODO!!!
 SRCDIR=/opt/src
 CHDKPTP_DIR=$SRCDIR/chdkptp
 
@@ -120,7 +194,7 @@ case "$1" in
     uninstall)
     ;;
     '' | install)
-        install_chdkptp
+        install_chdkptp || exit 1
         test_chdkptp
         [[ "$fail_test" == "Yes" ]] && exit 1
     ;;
