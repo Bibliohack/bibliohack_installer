@@ -281,11 +281,6 @@ function test_tecgraf {
     done
 }
 
-#TODO:
-function print_tecgraf_version {
-  :
-}
-#TODO:
 function get_version {
   [[ "$1" =~ ^(iup|im|cd)$ ]] && lib="$1" || { echo "ERROR: debug: get_version: valor no admitido: '$1'"; return 1; }
   [[ -f "/usr/bin/lua5.1" ]] || { echo "ERROR: lua5.1 no instalado. Ejecutar 'tecgraf' en '/opt/src/instaladores'"; return 1; } #TODO chequear lua path para debian!!
