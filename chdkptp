@@ -147,8 +147,17 @@ fi
 }
 
 function test_chdkptp {
-  # export LUA_PATH="./lua/?.lua
-  echo "TODO: test_chdkptp!!"
+  cd "$CHDKPTP_DIR"
+  [[ -f ./chdkptp ]] || return 1
+  export LUA_PATH="./lua/?.lua"
+  chdkptp_out=$( ./chdkptp -h | head -n 1 )
+  if [ "$chdkptp_out" == "CHDK PTP control utility" ]; then
+    echo "chdkptp instalado con éxito"
+    return 0
+  else
+    echo "chdkptp no instalado"
+    return 1
+  fi
 }
 
 function check_tecgraf_ver { # tambien version!
@@ -187,20 +196,17 @@ TECGRAF_INSTALLER="$PWD/tecgraf" # TODO!!!
 SRCDIR=/opt/src
 CHDKPTP_DIR=$SRCDIR/chdkptp
 
-set_chdkptp_profile "$2" # $2=profile=d\u
-set_packages_param
-
 case "$1" in
     uninstall)
     ;;
     '' | install)
+        set_chdkptp_profile "$2" # $2=profile=d\u
+        set_packages_param
         install_chdkptp || exit 1
-        test_chdkptp
-        [[ "$fail_test" == "Yes" ]] && exit 1
+        test_chdkptp && exit 0 || exit 1
     ;;
     test)
-        test_chdkptp
-        [[ "$fail_test" == "Yes" ]] && exit 1
+        test_chdkptp && exit 0 || exit 1
     ;;
     *)
         echo "ERROR: parametro desconocido '$1'"
