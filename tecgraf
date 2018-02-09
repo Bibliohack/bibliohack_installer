@@ -287,7 +287,10 @@ function get_version {
   lua5.1 -e "require '${lib}lua'" 2>/dev/null && {
     lua5.1 -e "require '${lib}lua'; print(${lib}.Version())"
     return 0
-  } || { echo "'${lib}' no instalado. Ejecutar 'tecgraf' en '/opt/src/instaladores'"; return 1; }
+  } || {
+    echo "'${lib}' no instalado. Ejecutar 'tecgraf' en '/opt/src/instaladores'"
+    return 1
+  }
 }
 
 function get_path {
@@ -345,22 +348,22 @@ case "$1" in
         [[ "$fail_test" == "Yes" ]] && exit 1
     ;;
     iup_ver)
-        echo `get_version 'iup'` || exit 1
+        get_version 'iup' || exit 1
     ;;
     cd_ver)
-        echo `get_version 'cd'` || exit 1
+        get_version 'cd' || exit 1
     ;;
     im_ver)
-        echo `get_version 'im'` || exit 1
+        get_version 'im' || exit 1
     ;;
     iup_path)
-        echo `get_path 'iup'` || exit 1
+        get_path 'iup' || exit 1
     ;;
     cd_path)
-        echo `get_path 'cd'` || exit 1
+        get_path 'cd' || exit 1
     ;;
     im_path)
-        echo `get_path 'im'` || exit 1
+        get_path 'im' || exit 1
     ;;
 
     *)
