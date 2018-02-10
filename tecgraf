@@ -46,7 +46,8 @@ function set_tecgraf_profile {
       CDLUA_EXTRA_TAR='true'
       IM_VER="3.12"
       IMLUA_EXTRA_TAR='true'
-      # NOT_INSTALL_LUA52="Yes"
+      lua_vers=( '51' '52' )
+
     elif [ "$profile" == "d" ]
      then
       [[ "$PRINT_SELEC" == "Yes" ]] && \
@@ -57,7 +58,7 @@ function set_tecgraf_profile {
       CDLUA_EXTRA_TAR=""      #'true'
       IM_VER="3.8.2"          #"3.11"
       IMLUA_EXTRA_TAR=""      #'true'
-      NOT_INSTALL_LUA52="Yes"
+      lua_vers=( '51' )
     else
       echo "ERROR: profile = '$profile'"
       exit 1
@@ -68,53 +69,37 @@ function set_packages_param {
 
     DEPS="lua5.1 liblua5.1-0-dev lua5.2 liblua5.2-dev libfreetype6-dev" # libftgl-dev zlib1g-dev
 
-    IUP_TAR=iup-${IUP_VER}_${KERNEL}${TYPE}_lib.${TAR_EXT}
-    if [ "$IUPLUA_EXTRA_TAR" == "true" ]
-     then
-       IUPLUA51_TAR=iup-${IUP_VER}-Lua51_${KERNEL}${TYPE}_lib.${TAR_EXT}
-       IPULUA52_TAR=iup-${IUP_VER}-Lua52_${KERNEL}${TYPE}_lib.${TAR_EXT}
-    else
-       IUPLUA_FOLDER=`basename $IUP_TAR .$TAR_EXT`
-    fi
-
-    CD_TAR=cd-${CD_VER}_${KERNEL}${TYPE}_lib.${TAR_EXT}
-    if [ "$CDLUA_EXTRA_TAR" == "true" ]
-     then
-       CDLUA51_TAR=cd-${CD_VER}-Lua51_${KERNEL}${TYPE}_lib.${TAR_EXT}
-       CDLUA52_TAR=cd-${CD_VER}-Lua52_${KERNEL}${TYPE}_lib.${TAR_EXT}
-     else
-       CDLUA_FOLDER=`basename $CD_TAR .$TAR_EXT`
-    fi
-
-    IM_TAR=im-${IM_VER}_${KERNEL}${TYPE}_lib.${TAR_EXT}
-    if [ "$IMLUA_EXTRA_TAR" == 'true' ]
-     then
-       IMLUA51_TAR=im-${IM_VER}-Lua51_${KERNEL}${TYPE}_lib.${TAR_EXT}
-       IMLUA52_TAR=im-${IM_VER}-Lua52_${KERNEL}${TYPE}_lib.${TAR_EXT}
-     else
-       IMLUA_FOLDER=`basename $IM_TAR .$TAR_EXT`
-    fi
+    versions=()
+    for lib in 'iup' 'cd' 'im'; do
+      eval ${lib^^}_TAR=${lib}-\$\{${lib^^}_VER\}_\$\{KERNEL\}\$\{TYPE\}_lib.\$\{TAR_EXT\}
+      eval TAR=\$${lib^^}_TAR
+      versions+=("$lib: $TAR")
+      extra_lua_folder=$( eval echo \$${lib}LUA_EXTRA_TAR )
+      versions+=("$lib extra_lua_folder: '$extra_lua_folder'")
+      if [ "$extra_lua_folder" == "true" ]
+       then
+         for lua_ver in "${lua_vers[@]}"; do
+           eval ${lib^^}LUA${lua_ver}_TAR=iup-\$\{${lib^^}_VER\}-Lua${lua_ver}_\$\{KERNEL\}\$\{TYPE\}_lib.\$\{TAR_EXT\}
+           eval LUATAR=\$${lib^^}LUA${lua_ver}_TAR
+           versions+=("$lib lua$lua_ver tar: '$LUATAR'")
+         done
+      else
+         TAR_FOLDER=$(basename $TAR .$TAR_EXT)
+         eval ${lib^^}LUA_FOLDER=\$TAR_FOLDER
+      fi
+    done
 
     [[ "$PRINT_SELEC" == "Yes" ]] && {
         echo -e "Paquetes a instalar:\n"
-        echo "iup:      '$IUP_TAR'"
-        echo "iuplua51: '$IUPLUA51_TAR'"
-        echo "iuplua52: '$IPULUA52_TAR'"
-        echo "cd:       '$CD_TAR'"
-        echo "cdlua51:  '$CDLUA51_TAR'"
-        echo "cdlua52:  '$CDLUA52_TAR'"
-        echo "im:       '$IM_TAR'"
-        echo "imlua51:  '$IMLUA51_TAR'"
-        echo "imlua52:  '$IMLUA52_TAR'"
+        for line in "${versions[@]}"; do echo "$line"; done
         echo ""
-        echo "Presione ENTER para continuar"
-        echo "o CONTROL+C para cancelar"
+        echo "Presione ENTER para continuar o CONTROL+C para cancelar"
         read -p ">> " continuar
     }
 }
 
 function install_libs {
-    current_folder="$PWD"
+    #current_folder="$PWD"
     items=()
     # verificar si no es necesario correr estos script con la variable USE_LUA51 o USE_LUA52
     for tar in $IUP_TAR $CD_TAR $IM_TAR
@@ -122,46 +107,20 @@ function install_libs {
         dest=`basename $tar .$TAR_EXT`
         items+=("$TECDIR/$dest;install install_dev;")
     done
-    if [ "$NOT_INSTALL_LUA52" == "Yes" ]
-     then
-      lua_vers=( '51' )
-    else
-      lua_vers=( '51' '52' )
-    fi
-    for lua in "${lua_vers[@]}"; do
 
-        if [ "$IUPLUA_EXTRA_TAR" == 'true' ]
-         then
-            [[ "$lua" == "51" ]] && tar=$IUPLUA51_TAR
-            [[ "$lua" == "52" ]] && tar=$IUPLUA52_TAR
-            dest=`basename $tar .$TAR_EXT`
-            items+=("$TECDIR/$dest;install install_dev config_lua_module;$lua")
-        else
-            dest=$IUPLUA_FOLDER
-            items+=("$TECDIR/$dest;config_lua_module;$lua")
-        fi
-
-        if [ "$CDLUA_EXTRA_TAR" == 'true' ]
-         then
-            [[ "$lua" == "51" ]] && tar=$CDLUA51_TAR
-            [[ "$lua" == "52" ]] && tar=$CDLUA52_TAR
-            dest=`basename $tar .$TAR_EXT`
-            items+=("$TECDIR/$dest;install install_dev config_lua_module;$lua")
-        else
-            dest=$CDLUA_FOLDER
-            items+=("$TECDIR/$dest;config_lua_module;$lua")
-        fi
-
-        if [ "$IMLUA_EXTRA_TAR" == 'true' ]
-         then
-            [[ "$lua" == "51" ]] && tar=$IMLUA51_TAR
-            [[ "$lua" == "52" ]] && tar=$IMLUA52_TAR
-            dest=`basename $tar .$TAR_EXT`
-            items+=("$TECDIR/$dest;install install_dev config_lua_module;$lua")
-        else
-            dest=$IMLUA_FOLDER
-            items+=("$TECDIR/$dest;config_lua_module;$lua")
-        fi
+    for lua_ver in "${lua_vers[@]}"; do
+      for lib in 'IUP' 'CD' 'IM'; do
+          extra_lua_folder=$( eval echo \$${lib}LUA_EXTRA_TAR )
+          if [ "$extra_lua_folder" == 'true' ]
+           then
+              tar=$( eval echo \$${lib}LUA${lua_ver}_TAR )
+              dest=`basename $tar .$TAR_EXT`
+              items+=("$TECDIR/$dest;install install_dev config_lua_module;$lua_ver")
+          else
+              dest=$( eval echo \$${lib}LUA_FOLDER )
+              items+=("$TECDIR/$dest;config_lua_module;$lua_ver")
+          fi
+      done
     done
 
     if [ "root" != "$CURRENT_USER" ]
@@ -184,18 +143,113 @@ function install_libs {
     return 0
 }
 
-function uninstall_libs {
-    current_folder="$PWD"
-    items=()
+function version_gt { test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1"; }
 
-    for tar in $IUP_TAR $CD_TAR $IM_TAR
-    do
-        dest=`basename $tar .$TAR_EXT`
-        [[ -d "$TECDIR/$dest" ]] && {
-            items+=("$TECDIR/$dest;uninstall;")
-        } || echo "'$TECDIR/$dest' no existe, no se puede desinstalar"
-    done
-    for tar in $IUPLUA51_TAR $IPULUA52_TAR $CDLUA51_TAR $CDLUA52_TAR \
+function get_installed_libs {
+
+  # set from system
+  IUP_VER=""; IUPLUA_EXTRA_TAR=""
+  CD_VER=""; CDLUA_EXTRA_TAR=""
+  IM_VER=""; IMLUA_EXTRA_TAR=""
+  lua_vers=()
+
+  versions=()
+  for lua_ver in '51' '52' '53'
+   do
+     lua_bin="/usr/bin/lua${lua_ver:0:1}.${lua_ver:1:1}"
+     [[ -f "$lua_bin" ]]  && lua_vers+=("$lua_ver")
+   done
+
+  get_version 'iup' &> /dev/null && {
+    IUP_VER=$(get_version 'iup')
+    versions+=("iup: $IUP_VER")
+    if version_gt "$IUP_VER" "3.15" # (( $(echo "$IUP_VER>3.15" | bc -l) ))
+     then
+      IUPLUA_EXTRA_TAR="true"
+      versions+=("iup extra_lua_folder: $IUPLUA_EXTRA_TAR")
+    fi
+  } || {
+    echo 'ATENCION: Tecgraf IUP no instalado'
+    unset IUP_VER;
+  }
+
+  get_version 'cd' &> /dev/null && {
+    CD_VER=$(get_version 'cd')
+    versions+=("cd: $CD_VER")
+    if version_gt "$CD_VER" "5.8.2" # (( $(echo "$CD_VER>5.8" | bc -l) )) #5.8.2
+     then
+      CDLUA_EXTRA_TAR="true"
+      versions+=("cd extra_lua_folder: $CDLUA_EXTRA_TAR")
+    fi
+  } || {
+    echo 'ATENCION: Tecgraf CD no instalado'
+    unset CD_VER;
+  }
+
+  get_version 'im' &> /dev/null && {
+    IM_VER=$(get_version 'im')
+    versions+=("im: $IM_VER")
+    if version_gt "$IM_VER" "3.9.1" # (( $(echo "$IM_VER>3.9" | bc -l) )) #3.9.1
+     then
+      IMLUA_EXTRA_TAR="true"
+      versions+=("im extra_lua_folder: $IMLUA_EXTRA_TAR")
+    fi
+  } || {
+    echo 'ATENCION: Tecgraf IM no instalado'
+    unset IM_VER;
+  }
+
+  versions+=("Versiones lua:""${lua_vers[*]}")
+
+  echo -e "Paquetes instalados en el sistema:\n"
+  for line in "${versions[@]}"; do echo "$line"; done
+  echo ""
+}
+
+function list_available_folders {
+  current_folder="$PWD"
+  cd $TECDIR
+  echo "Instalaciones tecgraf disponibles en '$TECDIR'"
+  echo ""
+  ls -1d */
+  cd $current_folder
+  echo ""
+}
+
+function modify_libs {
+
+  echo "Ingrese la versión modificada o ENTER para mantenerla"
+
+  echo "iup: $IUP_VER"
+  read -p "> " v
+  [[ "$v" ]] && { IUP_VER=$v; echo "  + ingresó '$IUP_VER'"; }
+
+  echo "cd: $CD_VER"
+  read -p "> " v
+  [[ "$v" ]] && { CD_VER=$v; echo "   + ingresó '$CD_VER'"; }
+
+  echo "im: $IM_VER"
+  read -p "> " v
+  [[ "$v" ]] && { IM_VER=$v; echo "   + ingresó '$IM_VER'"; }
+
+  echo "kernel: $KERNEL"
+  read -p "> " v
+  [[ "$v" ]] && { KERNEL=$v; echo "   + ingresó '$KERNEL'"; }
+
+  echo "type: $TYPE"
+  read -p "> " v
+  [[ "$v" ]] && { TYPE=$v; echo "   + ingresó '$TYPE'"; }
+
+  return 0
+}
+
+function uninstall_tecgraf {
+    current_folder="$PWD"
+
+    items=()
+    for tar in $IUP_TAR $CD_TAR $IM_TAR \
+               $IUPLUA51_TAR $IPULUA52_TAR \
+               $CDLUA51_TAR $CDLUA52_TAR \
                $IMLUA51_TAR $IMLUA52_TAR
     do
         dest=`basename $tar .$TAR_EXT`
@@ -210,7 +264,7 @@ function uninstall_libs {
         echo -n "para desinstalar iup, cd y im en el sistema es "
         echo "necesario hacerse root..."
         ./tools/run_as_root ./tools/tecgraf/install_libs "${items[@]}" || {
-            echo "uninstall_libs (root) falló"
+            echo "install_libs (root) falló"
             return 1
         }
     else
@@ -263,7 +317,7 @@ function test_tecgraf {
     echo "Verificando instalacion..."
     fail_test=""
     for lib in 'iup' 'cd' 'im'; do
-        lua5.1 -e "require '${lib}lua'" 2>/dev/null && {
+        lua5.1 -e "require '${lib}lua'" &> /dev/null && {
           echo -n "lua5.1: ${lib}lua instalado OK! versión: "
           eval echo \$${lib^^}_VER
           echo -n "${lib}.Version()="
@@ -271,7 +325,7 @@ function test_tecgraf {
         } || { echo "lua5.1: ${lib}lua NO instalado"; fail_test="Yes"; }
         if [ "$NOT_INSTALL_LUA52" != "Yes" ]
           then
-            lua5.2 -e "require '${lib}lua'" 2>/dev/null && {
+            lua5.2 -e "require '${lib}lua'" &> /dev/null && {
               echo -n "lua5.2: ${lib}lua instalado OK! versión: "
               eval echo \$${lib^^}_VER
               echo -n "${lib}.Version()="
@@ -282,10 +336,29 @@ function test_tecgraf {
 }
 
 function get_version {
-  [[ "$1" =~ ^(iup|im|cd)$ ]] && lib="$1" || { echo "ERROR: debug: get_version: valor no admitido: '$1'"; return 1; }
-  [[ -f "/usr/bin/lua5.1" ]] || { echo "ERROR: lua5.1 no instalado. Ejecutar 'tecgraf' en '/opt/src/instaladores'"; return 1; } #TODO chequear lua path para debian!!
-  lua5.1 -e "require '${lib}lua'" 2>/dev/null && {
-    lua5.1 -e "require '${lib}lua'; print(${lib}.Version())"
+  [[ "$1" =~ ^(iup|im|cd)$ ]] && {
+    lib="$1"
+  } || {
+    echo "ERROR: debug: get_version: valor no admitido: '$1'"
+    return 1
+  }
+
+  lua_ver="51"
+  lua_bin="/usr/bin/lua5.1"
+
+  [[ "$2" != "" ]] && {
+    [[ "$2" =~ ^(51|52|53)$ ]] && {
+      lua_ver="$2"
+      lua_bin="/usr/bin/lua${lua_ver:0:1}.${lua_ver:1:1}"
+    } || {
+      echo "ERROR: debug: Versión lua no válida: '$2'"
+      return 1
+    }
+  }
+
+  [[ -f "$lua_bin" ]] || { echo "ERROR: lua_bin no instalado. Ejecutar 'tecgraf' en '/opt/src/instaladores'"; return 1; } #TODO chequear lua path para debian!!
+  $lua_bin -e "require '${lib}lua'" &> /dev/null && {
+    $lua_bin -e "require '${lib}lua'; print(${lib}.Version())"
     return 0
   } || {
     echo "'${lib}' no instalado. Ejecutar 'tecgraf' en '/opt/src/instaladores'"
@@ -331,9 +404,15 @@ TECDIR=$SRCDIR/tecgraf
 
 case "$1" in
     uninstall)
-        set_tecgraf_profile "$2"
+        get_installed_libs || exit 1
+        echo -e "Presione \n ENTER para desinstalar\n 'M' para modificar\n Control+C para salir\n"
+        read -p ">> " continuar
+        if [[ "$continuar" =~ ^(M|m)$ ]]; then
+           list_available_folders
+           modify_libs || exit 1
+        fi
         set_packages_param
-        uninstall_libs
+        uninstall_tecgraf || exit 1
         test_tecgraf
     ;;
     '' | install_tecgraf)
@@ -369,6 +448,7 @@ case "$1" in
     *)
         echo "ERROR: parametro desconocido '$1'"
         exit 1
+    ;;
 esac
 
 exit 0
