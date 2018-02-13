@@ -98,8 +98,8 @@ function install_chdkptp {
 }
 
 function get_config_file {
-  IUP_LIB_DIR=`$TECGRAF_INSTALLER iup_path`
-  CD_LIB_DIR=`$TECGRAF_INSTALLER cd_path`
+  IUP_LIB_DIR=`$TECGRAF_INSTALLER print_path=iup`
+  CD_LIB_DIR=`$TECGRAF_INSTALLER print_path=cd`
   config_file_d="
 IUP_SUPPORT=1
 CD_SUPPORT=1
@@ -163,10 +163,10 @@ function test_chdkptp {
 function check_tecgraf_ver { # tambien version!
   fail=''
   for lib in 'iup' 'cd' 'im'; do
-    if ${TECGRAF_INSTALLER} "${lib}_ver" > /dev/null 2>&1
+    if ${TECGRAF_INSTALLER} "print_ver=${lib}" > /dev/null 2>&1
      then
       required_ver=$( eval echo "\$${lib^^}_VER" )
-      installed_ver=`${TECGRAF_INSTALLER} "${lib}_ver"`
+      installed_ver=`${TECGRAF_INSTALLER} "print_ver=${lib}"`
       echo -n "${lib}: instalada:'$installed_ver' requerida:'$required_ver' .."
       [[ "$installed_ver" == "$required_ver" ]] && {
         echo "OK"

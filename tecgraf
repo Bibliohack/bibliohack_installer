@@ -1,11 +1,22 @@
 #!/bin/bash
 
-# USO:
-#    ./tecgraf           -> instala iup/cd/im
-#    ./tecgraf uninstall -> desinstala iup/cd/im
-#    ./tecgraf luatest   -> test si funciona iup/cd/im en lua
-#    nota: el script siempre pregunta por un perfil de instalacion
+help="
+Uso:
 
+    tecgraf                        -> Instala iup,cd,im (pregunta por profile).
+
+    tecgraf uninstall              -> Verifica que versiones iup,cd,im están
+                                      instaladas e intenta desinstalarlas.
+
+    tecgraf print_ver=iup|cd|im[,51|52|53]
+                                   -> Imprime versión iup|cd|im instalada para
+                                      la version de lua indicada (51 por defecto)
+
+    tecgraf print_path=iup|cd|im -> Imprime la ruta a iup|cd|im para chdkptp.
+
+    tecgraf install profile=d|u  -> instala iup,cd,im profile de forma
+                                    no interactiva
+"
 # chequeado en Ubuntu 16.04 OK perfil 'd', no instala LUA 5.2
 
 # TODO: test de errores con
@@ -40,7 +51,8 @@ function set_tecgraf_profile {
      then
       [[ "$PRINT_SELEC" == "Yes" ]] && \
         echo -e "Configurando versiones de los paquetes tecgraf para 'última versión' (u)\n"
-      IUP_VER="3.23"
+      # r735 March 2017 https://app.assembla.com/spaces/chdkptp/wiki/Changelog
+      IUP_VER="3.21"
       IUPLUA_EXTRA_TAR='true'
       CD_VER="5.11.1"
       CDLUA_EXTRA_TAR='true'
@@ -160,8 +172,8 @@ function get_installed_libs {
      [[ -f "$lua_bin" ]]  && lua_vers+=("$lua_ver")
    done
 
-  get_version 'iup' &> /dev/null && {
-    IUP_VER=$(get_version 'iup')
+  print_version 'iup' &> /dev/null && {
+    IUP_VER=$(print_version 'iup')
     versions+=("iup: $IUP_VER")
     if version_gt "$IUP_VER" "3.15" # (( $(echo "$IUP_VER>3.15" | bc -l) ))
      then
@@ -173,8 +185,8 @@ function get_installed_libs {
     unset IUP_VER;
   }
 
-  get_version 'cd' &> /dev/null && {
-    CD_VER=$(get_version 'cd')
+  print_version 'cd' &> /dev/null && {
+    CD_VER=$(print_version 'cd')
     versions+=("cd: $CD_VER")
     if version_gt "$CD_VER" "5.8.2" # (( $(echo "$CD_VER>5.8" | bc -l) )) #5.8.2
      then
@@ -186,8 +198,8 @@ function get_installed_libs {
     unset CD_VER;
   }
 
-  get_version 'im' &> /dev/null && {
-    IM_VER=$(get_version 'im')
+  print_version 'im' &> /dev/null && {
+    IM_VER=$(print_version 'im')
     versions+=("im: $IM_VER")
     if version_gt "$IM_VER" "3.9.1" # (( $(echo "$IM_VER>3.9" | bc -l) )) #3.9.1
      then
@@ -315,31 +327,32 @@ function install_tecgraf {
 function test_tecgraf {
     echo ""
     echo "Verificando instalacion..."
-    fail_test=""
-    for lib in 'iup' 'cd' 'im'; do
-        lua5.1 -e "require '${lib}lua'" &> /dev/null && {
-          echo -n "lua5.1: ${lib}lua instalado OK! versión: "
-          eval echo \$${lib^^}_VER
-          echo -n "${lib}.Version()="
-          lua5.1 -e "require '${lib}lua'; print(${lib}.Version())"
-        } || { echo "lua5.1: ${lib}lua NO instalado"; fail_test="Yes"; }
-        if [ "$NOT_INSTALL_LUA52" != "Yes" ]
-          then
-            lua5.2 -e "require '${lib}lua'" &> /dev/null && {
-              echo -n "lua5.2: ${lib}lua instalado OK! versión: "
-              eval echo \$${lib^^}_VER
-              echo -n "${lib}.Version()="
-              lua5.2 -e "require '${lib}lua'; print(${lib}.Version())"
-            } || { echo "lua5.2: ${lib}lua NO instalado"; fail_test="Yes"; }
-        fi
+    fail=''
+    for lua_ver in "${lua_vers[@]}"
+    do
+      lua_bin="/usr/bin/lua${lua_ver}"
+      [[ -f "$lua_bin" ]] && {
+        for lib in 'iup' 'cd' 'im'
+         do
+           $lua_bin -e "require '${lib}lua'" &> /dev/null && {
+             echo -n "$lua_bin: ${lib}lua instalado OK! versión: "
+             echo -n "${lib}.Version()="
+             installed=$( $lua_bin -e "require '${lib}lua'; print(${lib}.Version())" )
+             echo "$installed"
+             eval intented=\$${lib^^}_VER
+             [[ "$intented" != "$installed" ]] && fail="Yes"
+           }  || fail="Yes"
+         done
+      } || fail="Yes"
     done
+    [[ "$fail" == "Yes" ]] && return 1 || return 0
 }
 
-function get_version {
+function print_version {
   [[ "$1" =~ ^(iup|im|cd)$ ]] && {
     lib="$1"
   } || {
-    echo "ERROR: debug: get_version: valor no admitido: '$1'"
+    echo "ERROR: debug: print_version: valor no admitido: '$1'"
     return 1
   }
 
@@ -356,20 +369,20 @@ function get_version {
     }
   }
 
-  [[ -f "$lua_bin" ]] || { echo "ERROR: lua_bin no instalado. Ejecutar 'tecgraf' en '/opt/src/instaladores'"; return 1; } #TODO chequear lua path para debian!!
+  [[ -f "$lua_bin" ]] || { echo "ERROR: '$lua_bin' no instalado."; return 1; } #TODO chequear lua path para debian!!
   $lua_bin -e "require '${lib}lua'" &> /dev/null && {
     $lua_bin -e "require '${lib}lua'; print(${lib}.Version())"
     return 0
   } || {
-    echo "'${lib}' no instalado. Ejecutar 'tecgraf' en '/opt/src/instaladores'"
+    echo "'${lib}' no instalado."
     return 1
   }
 }
 
-function get_path {
-  [[ "$1" =~ ^(iup|im|cd)$ ]] && lib="$1" || { echo "ERROR: debug: get_path: valor no admitido: '$1'"; return 1; }
+function print_path {
+  [[ "$1" =~ ^(iup|im|cd)$ ]] && lib="$1" || { echo "ERROR: debug: print_path: valor no admitido: '$1'"; return 1; }
 
-  VER=`get_version "${lib}"`
+  VER=`print_version "${lib}"`
   lib_path="${TECDIR}/${lib}-${VER}_${KERNEL}${TYPE}_lib"
   [[ -d "${lib_path}" ]] && {
     echo "${lib_path}"
@@ -379,10 +392,6 @@ function get_path {
     return 1
   }
 }
-
-# TODO test_tecgraf_ver
-# lua5.1 -e "require '${lib}lua'; print(${lib}.Version())"
-# (comparar resultado con la version del profile ingresado, ej: $IUP_VER)
 
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = #
 
@@ -402,7 +411,9 @@ CURRENT_USER="$USER"
 SRCDIR=/opt/src
 TECDIR=$SRCDIR/tecgraf
 
-case "$1" in
+arg="$1"
+
+case "$arg" in
     uninstall)
         get_installed_libs || exit 1
         echo -e "Presione \n ENTER para desinstalar\n 'M' para modificar\n Control+C para salir\n"
@@ -415,38 +426,36 @@ case "$1" in
         uninstall_tecgraf || exit 1
         test_tecgraf
     ;;
-    '' | install_tecgraf)
+    '' | install)
+        get_installed_libs || exit 1
+        if [ "$IUP_VER" ] || [ "$CD_VER" ] || [ "$IM_VER" ]
+         then
+           echo "Existen librerías Tecgraf instaladas en su sistema,"
+           echo "use './tecgraf uninstall' para desinstalarlas."
+           echo
+           exit 1;
+        fi
         set_tecgraf_profile "$2"
         set_packages_param
         install_tecgraf
-        test_tecgraf
-        [[ "$fail_test" == "Yes" ]] && exit 1
+        test_tecgraf || exit 1
     ;;
-    luatest)
-        test_tecgraf
-        [[ "$fail_test" == "Yes" ]] && exit 1
+    print_ver=*)
+        parg="${arg#*=}"
+        parg1="${parg%,*}"
+        parg2="${parg#*,}"
+        [[ "$parg1" == "$parg2" ]] &&{
+          print_version "$parg1" || exit 1
+        } || {
+          print_version "$parg1" "$parg2" || exit 1
+        }
     ;;
-    iup_ver)
-        get_version 'iup' || exit 1
+    print_path=*)
+        print_path "${arg#*=}" || exit 1
     ;;
-    cd_ver)
-        get_version 'cd' || exit 1
-    ;;
-    im_ver)
-        get_version 'im' || exit 1
-    ;;
-    iup_path)
-        get_path 'iup' || exit 1
-    ;;
-    cd_path)
-        get_path 'cd' || exit 1
-    ;;
-    im_path)
-        get_path 'im' || exit 1
-    ;;
-
     *)
         echo "ERROR: parametro desconocido '$1'"
+        echo "$help"
         exit 1
     ;;
 esac
