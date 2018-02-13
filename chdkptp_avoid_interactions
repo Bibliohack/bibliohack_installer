@@ -1,0 +1,87 @@
+#!/bin/bash
+
+function modify_udev_rules {
+
+  tmp_folder=`mktemp -d`
+
+  if [ "$RELEASN" == '16.04' ] && [ "$OSNAME" == 'Ubuntu' ]
+   then
+    libgphoto2_rules='60-libgphoto2-6.rules'
+    libgphoto2_hwdb='20-libgphoto2-6.hwdb'
+    lib_rules='/lib/udev/rules.d'
+    lib_hwdb='/lib/udev/hwdb.d'
+    etc_rules='/etc/udev/rules.d'
+    etc_hwdb='/etc/udev/hwdb.d'
+    find_line='ENV{ID_USB_INTERFACES}=="", IMPORT{builtin}="usb_id"'
+    insert_line='ENV{ID_USB_INTERFACES}=="*:060101:*", ATTR{idVendor}=="04a9", MODE="0664", GROUP="plugdev", GOTO="libgphoto2_rules_end"'
+  else
+    echo "'$OSNAME $RELEASN' no soportado"
+    return 1
+  fi
+
+  for path in "$lib_rules/$libgphoto2_rules" "$lib_hwdb/$libgphoto2_hwdb" "$etc_rules" "$etc_hwdb"
+   do
+    [[ -f "$path" ]] || [[ -d "$path" ]] || { echo "ERROR: '$path' no existe"; return 1; }
+  done
+
+  cp -v "$lib_rules/$libgphoto2_rules" "$tmp_folder/$libgphoto2_rules" && \
+  cp -v "$lib_hwdb/$libgphoto2_hwdb" "$tmp_folder/$libgphoto2_hwdb" || return 1
+
+  fail=""
+  grep -q "$find_line" "$tmp_folder/$libgphoto2_rules" && {
+    echo "Agregando: "
+    echo -n "<<$insert_line>> "
+    echo "en '$tmp_folder/$libgphoto2_rules'"
+    sed -i "/$find_line/a $insert_line" "$tmp_folder/$libgphoto2_rules"
+  } && \
+  remove_selected_models "$tmp_folder/$libgphoto2_hwdb" || fail="Yes"
+
+  [[ "$fail" == "Yes" ]] && {
+    #rm "$tmp_folder"
+    echo "ERROR: No se pudieron modificar las reglas udev para bloquear "
+    echo "       los dispositivos seleccionados."
+    return 1
+  } || {
+    if [ "root" != "$CURRENT_USER" ]
+     then
+        echo "para realizar las siguientes operaciones es necesario hacerse root..."
+        # todo check if deb-src enabled
+        ./tools/run_as_root cp -v "$tmp_folder/$libgphoto2_rules" "$etc_rules/" || return 1
+        ./tools/run_as_root cp -v "$tmp_folder/$libgphoto2_hwdb" "$etc_hwdb/" || return 1
+        ./tools/run_as_root udevadm control --reload || return 1
+        # udevadm hwdb --update && \
+        # udevadm control --reload-rules || return 1
+
+    else
+        cp "$tmp_folder/$libgphoto2_rules" "$etc_rules/$libgphoto2_rules" || return 1
+        cp "$tmp_folder/$libgphoto2_hwdb" "$etc_hwdb/$libgphoto2_hwdb" || return 1
+        udevadm control --reload || return 1
+    fi
+  }
+}
+
+function remove_selected_models {
+
+  [[ "$1" ]] && hwdb_file="$1" || {
+    echo "ERROR: debug: argumento nulo para delete_selected_models"; return 1;
+  }
+
+  selected_models=('v04A9p3276' 'v04A9p325A' 'v04A9p3234' 'v04A9p3211' 'v04A9p31E0' 'v04A9p31F1')
+
+  for model in "${selected_models[@]}"
+   do
+    grep -q "$model" "$hwdb_file" && {
+      echo -n "Encontrado: "
+      sed -n "/$model/{x;p;d;}; x" "$hwdb_file" || return 1
+      sed -i "/$model/, +3 d" "$hwdb_file" || return 1
+    } || echo "ATENCION: no se encontró dispositivo para id '$model' en ${hwdb_file}."
+   done
+
+  return 0
+}
+
+OSNAME=`lsb_release -is`
+CODENM=`lsb_release -cs`
+RELEASN=`lsb_release -rs`
+
+modify_udev_rules || exit 1
