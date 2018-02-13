@@ -1,0 +1,109 @@
+#!/bin/bash
+
+# Este script esta pensado para NO ejecutarse como root
+
+OSNAME=`lsb_release -is`
+CODENM=`lsb_release -cs`
+RELEASN=`lsb_release -rs`
+
+OWN_PATH="$PWD/$0"
+CURRENT_USER="$USER"
+BASHRC_LINE="source '$HOME/.rvm/scripts/rvm'"
+
+grep -q "$BASHRC_LINE" "$HOME/.bashrc" && {
+  echo "Parece que pdfbeads ya esta instalado para este usuario como entorno RVM"
+  exit 0
+}
+[[ -f "$HOME/.rvm/scripts/rvm" ]] && {
+  echo "Parece que pdfbeads ya esta instalado para este usuario como entorno RVM"
+  exit 0
+}
+
+if [ "$RELEASN" == '16.04' ] && [ "$OSNAME" == 'Ubuntu' ]
+ then
+  DEPS="jbig2dec libmagickwand-dev imagemagick gnupg2 curl"
+  if ! ./tools/check_pkgs $DEPS; then
+     if [ "root" != "$CURRENT_USER" ]; then
+         echo "para instalar paquetes con apt-get es necesario hacerse root..."
+         # todo check if deb-src enabled
+         ./tools/run_as_root "apt-get install" "$DEPS" || {
+             echo "error al instalar con apt-get"
+             exit 1
+         }
+     else
+         apt-get install $DEPS || {
+             echo "error al instalar con apt-get"
+             exit 1
+         }
+     fi
+  fi
+  # RM_DEPS="ruby ruby-rmagick ruby-hpricot rubygems"
+  # echo "Para desinstalar Ruby del sistema es necesario hacerse root..."
+  # ./tools/run_as_uroot "apt-get autoremove" "$RM_DEPS" || exit 1
+fi
+
+
+echo "Descargando claves publicas para RVM..."
+# gpg --keyserver hkp://keys.gnupg.net --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB # fail
+# gpg2 --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 # fail
+command curl -sSL https://rvm.io/mpapis.asc | gpg2 --import - || exit 1
+echo "OK"
+
+echo "Descargando script de instalación de RVM..."
+cd /tmp || exit 1
+curl -sSL https://get.rvm.io -o rvm.sh || exit 1
+echo "OK"
+
+echo "Instalando RVM..."
+cat /tmp/rvm.sh | bash -s stable || exit 1
+
+[[ "$HOME/.rvm/scripts/rvm" ]] && source "$HOME/.rvm/scripts/rvm" || exit 1
+which rvm &> /dev/null || {
+  echo "ERROR: No pudo instalarse RVM."
+  exit 1
+}
+echo "OK"
+
+echo "Instalando Env. Ruby 1.9.3"
+rvm install 1.9.3 || exit 1
+rvm use 1.9.3 || exit 1
+echo "OK"
+# desinstalar: rvm implode
+
+echo "Instalando pdfbeads"
+gem install ttfunk -v 1.4.0 || exit 1
+gem install nokogiri -v 1.6.8.1 || exit 1
+gem install pdfbeads || exit 1
+
+# pdfbeads (1.1.1)
+
+  # nokogiri 1.6.8.1 (>= 1.5.10) *
+    # mini_portile2 (2.1.0)
+
+  # pdf-reader 2.0.0 (>= 1.0.0)
+    # Ascii85 1.0.3
+    # afm 0.2.2
+    # hashery 2.1.2
+    # ttfunk 1.4.0 (>= 0) *
+    # ruby-rc4 0.1.5
+  
+  # rmagick 2.16.0.gem (>= 2.13.0)
+
+echo "OK"
+# desinstalar: gem uninstall -x <paquete>  (-x elimina ejec. sin preguntar)
+# (no se como se desinstalan automaticamente las dependencias)
+
+which pdfbeads &> /dev/null && {
+  echo "Pdfbeads instalado exitosamente!"
+  [[ -f "$HOME/.bashrc" ]] && {
+    echo "source '$HOME/.rvm/scripts/rvm'" >> "$HOME/.bashrc" && {
+      echo "Entorno de ejecución RVM agregada a .bashrc"
+      exit 0
+    } || {
+      echo "ERROR: No se pudo modificar '.bashrc', instalación incompleta."
+    }
+  }
+} || {
+  echo "ERROR: No pudo instalarse pdfbeads."
+  exit 1
+}

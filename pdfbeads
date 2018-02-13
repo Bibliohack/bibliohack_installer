@@ -1,0 +1,47 @@
+#!/bin/bash
+
+OSNAME=`lsb_release -is`
+CODENM=`lsb_release -cs`
+RELEASN=`lsb_release -rs`
+
+OWN_PATH="$PWD/$0"
+CURRENT_USER="$USER"
+
+echo "este script esta incompleto!"; exit 1
+
+if [ "$RELEASN" == '7.11' ] && [ "$OSNAME" == 'Debian' ]
+ then
+  DEPS="ruby-full ruby-dev rubygems ruby-rmagick ruby-hpricot libmagickwand-dev imagemagick"
+  if ! ./tools/check_pkgs $DEPS; then
+     if [ "root" != "$CURRENT_USER" ]; then
+         echo "para instalar paquetes con apt-get es necesario hacerse root..."
+         # todo check if deb-src enabled
+         ./tools/run_as_root "apt-get install" "$DEPS" || {
+             echo "error al instalar con apt-get"
+             exit 1
+         }
+     else
+         apt-get install $DEPS || {
+             echo "error al instalar con apt-get"
+             exit 1
+         }
+     fi
+  fi
+
+# instalar y compilar jbig2enc !!!
+
+  echo "Instalando Pdfbeads..."
+  ./tools/run_as_uroot .tools/pdfbeads/install_pdfbeads_gems && echo "Pdfbeads OK" || exit 1
+  echo "Verificando instalación.."
+  which pdfbeads &> /dev/null && {
+    echo "OK"
+    exit 0
+  } || {
+    echo "ERROR"
+    exit 1
+  }
+
+else
+  echo "su sistema operativo  '$OSNAME' '$RELEASN' no esta soportado"
+  exit 1
+fi

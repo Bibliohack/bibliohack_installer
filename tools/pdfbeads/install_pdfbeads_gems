@@ -1,0 +1,5 @@
+#!/bin/bash
+
+gem install ttfunk -v 1.4.0
+gem install nokogiri -v 1.6.8.1
+gem install pdfbeads
