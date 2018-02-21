@@ -12,10 +12,10 @@ Uso:
                                    -> Imprime versión iup|cd|im instalada para
                                       la version de lua indicada (51 por defecto)
 
-    tecgraf print_path=iup|cd|im -> Imprime la ruta a iup|cd|im para chdkptp.
+    tecgraf print_path=iup|cd|im   -> Imprime la ruta a iup|cd|im para chdkptp.
 
-    tecgraf install profile=d|u  -> instala iup,cd,im profile de forma
-                                    no interactiva
+    tecgraf install profile=d|u    -> instala iup,cd,im profile de forma
+                                      no interactiva
 "
 # chequeado en Ubuntu 16.04 OK perfil 'd', no instala LUA 5.2
 
@@ -23,8 +23,8 @@ Uso:
 # ./tecgraf install_tecgraf profile=d || echo "fail"
 
 # volver a chequear en Debian Wheezy 3.8/5.6.1/3.8.2 - no se instala para LUA 5.2, porque para esas versiones no corre la variable USE_LUA51
-# TODO: debian no funciona run_as_root -> probablmente no este pasando los parametros que van en $COMMAND en:  su root -c $COMMAND (ojo, esto esta fixed o no?)
-# TODO: ubuntu 16.04 profile=u NO instala en lua 5.2, solo en 5.1 - cd da errores en libreria y lua -
+# TODO: debian probar si funciona o no run_as_root
+# TODO: ubuntu 16.04 profile=u OK
 
 function set_tecgraf_profile {
 
@@ -500,6 +500,9 @@ case "$arg" in
     ;;
     print_path=*)
         print_path "${arg#*=}" || exit 1
+    ;;
+    help)
+        echo "$help"
     ;;
     *)
         echo "ERROR: parametro desconocido '$1'"
