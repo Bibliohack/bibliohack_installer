@@ -31,10 +31,10 @@ do
   SCRIPTS="${arr[1]}"
   LUAENV="${arr[2]}"
 
-  [[ "$LUAENV" == "lua51" ]] && {
+  [[ "$LUAENV" == "51" ]] && {
      export USE_LUA51=Yes; export USE_LUA52=""; echo "$OWN USE_LUA51=Yes";
   }
-  [[ "$LUAENV" == "lua52" ]] && {
+  [[ "$LUAENV" == "52" ]] && {
      export USE_LUA52=Yes; export USE_LUA51=""; echo "$OWN USE_LUA52=Yes";
   }
   cd "$FOLDER"

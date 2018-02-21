@@ -24,6 +24,7 @@ Uso:
 
 # volver a chequear en Debian Wheezy 3.8/5.6.1/3.8.2 - no se instala para LUA 5.2, porque para esas versiones no corre la variable USE_LUA51
 # TODO: debian no funciona run_as_root -> probablmente no este pasando los parametros que van en $COMMAND en:  su root -c $COMMAND (ojo, esto esta fixed o no?)
+# TODO: ubuntu 16.04 profile=u NO instala en lua 5.2, solo en 5.1 - cd da errores en libreria y lua -
 
 function set_tecgraf_profile {
 
@@ -44,6 +45,19 @@ function set_tecgraf_profile {
       elif [ "$sel" == "s" ]; then echo "Eligió salir."; exit 0
       else profile="d"
       fi
+
+      echo "Seleccione fuente de descarga:"
+      echo " - 's' descargar desde sourceforge"
+      echo " - 'a' alternativo"
+      #echo " por defecto usar tarballs/sourceforgue/alternativo" TODO
+      echo "(por defecto 's')"
+      read -p ">> " sel
+      echo ""
+
+      if [ "$sel" == "a" ]; then SOURCEFORGE="No"
+      else SOURCEFORGE="Yes"
+      fi
+
       PRINT_SELEC="Yes"
     fi
 
@@ -86,12 +100,12 @@ function set_packages_param {
       eval ${lib^^}_TAR=${lib}-\$\{${lib^^}_VER\}_\$\{KERNEL\}\$\{TYPE\}_lib.\$\{TAR_EXT\}
       eval TAR=\$${lib^^}_TAR
       versions+=("$lib: $TAR")
-      extra_lua_folder=$( eval echo \$${lib}LUA_EXTRA_TAR )
+      extra_lua_folder=$( eval echo \$${lib^^}LUA_EXTRA_TAR )
       versions+=("$lib extra_lua_folder: '$extra_lua_folder'")
       if [ "$extra_lua_folder" == "true" ]
        then
          for lua_ver in "${lua_vers[@]}"; do
-           eval ${lib^^}LUA${lua_ver}_TAR=iup-\$\{${lib^^}_VER\}-Lua${lua_ver}_\$\{KERNEL\}\$\{TYPE\}_lib.\$\{TAR_EXT\}
+           eval ${lib^^}LUA${lua_ver}_TAR=${lib}-\$\{${lib^^}_VER\}-Lua${lua_ver}_\$\{KERNEL\}\$\{TYPE\}_lib.\$\{TAR_EXT\}
            eval LUATAR=\$${lib^^}LUA${lua_ver}_TAR
            versions+=("$lib lua$lua_ver tar: '$LUATAR'")
          done
@@ -140,6 +154,7 @@ function install_libs {
         echo ""
         echo -n "para instalar iup, cd y im en el sistema es "
         echo "necesario hacerse root..."
+        for item in "${items[@]}"; do echo "$item"; done
         ./tools/run_as_root ./tools/tecgraf/install_libs "${items[@]}" || {
             echo "install_libs (root) falló"
             return 1
@@ -153,6 +168,24 @@ function install_libs {
 
     cd $current_folder
     return 0
+}
+
+function sourceforge_link {
+   local tar="$1"
+   local infover="${tar%%_*}"
+   IFS='-' read -ra data <<< "$infover"
+   local lib="${data[0]}"
+   if [[ "$lib" == 'im' ]]; then lib='imtoolkit'
+   elif [[ "$lib" == 'cd' ]]; then lib='canvasdraw'
+   elif [[ "$lib" == 'iup' ]]; then lib='iup'
+   else echo "no se pudo generar el enlace para sourceforge"; exit 1
+   fi
+   local ver="${data[1]}"
+   local vlua="${data[2]}"
+   if [[ "$vlua" ]]; then lua="$vlua/"; fi
+   # "https://sourceforge.net/projects
+   echo "https://sourceforge.net/projects/${lib}/files/${ver}/Linux%20Libraries/${vlua}"
+   return 0
 }
 
 function version_gt { test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1"; }
@@ -313,12 +346,19 @@ function install_tecgraf {
         fi
     fi
 
-    for tar in $IUP_TAR $IUPLUA51_TAR $IPULUA52_TAR \
+    for tar in $IUP_TAR $IUPLUA51_TAR $IUPLUA52_TAR \
                $CD_TAR  $CDLUA51_TAR  $CDLUA52_TAR \
                $IM_TAR  $IMLUA51_TAR  $IMLUA52_TAR
     do
         dest=`basename $tar .$TAR_EXT`
-        echo "descargando '$tar' para instalar en '$dest'"
+        echo -e "\ndescargando '$tar' para instalar en '$dest'\n"
+        if [ "$SOURCEFORGE" == "Yes" ]
+         then
+          URL="$( sourceforge_link $tar )"
+        else
+          URL="$ALT_URL"
+        fi
+        if [[ ! "$URL" ]]; then echo " ERROR: falló URL = '$URL'"; exit 1; fi
         ./tools/download_and_untar $tar $URL $TECDIR $dest || exit 1
     done
 
@@ -330,20 +370,28 @@ function test_tecgraf {
     fail=''
     for lua_ver in "${lua_vers[@]}"
     do
-      lua_bin="/usr/bin/lua${lua_ver}"
-      [[ -f "$lua_bin" ]] && {
-        for lib in 'iup' 'cd' 'im'
-         do
-           $lua_bin -e "require '${lib}lua'" &> /dev/null && {
-             echo -n "$lua_bin: ${lib}lua instalado OK! versión: "
-             echo -n "${lib}.Version()="
-             installed=$( $lua_bin -e "require '${lib}lua'; print(${lib}.Version())" )
-             echo "$installed"
-             eval intented=\$${lib^^}_VER
-             [[ "$intented" != "$installed" ]] && fail="Yes"
-           }  || fail="Yes"
+      lua_bin="/usr/bin/lua${lua_ver:0:1}.${lua_ver:1:1}"
+      if [[ -f "$lua_bin" ]]
+       then
+         for lib in 'iup' 'cd' 'im'
+          do
+            if $lua_bin -e "require '${lib}lua'" &> /dev/null
+             then
+               echo -n "$lua_bin: ${lib}lua instalado OK! versión: "
+               echo -n "${lib}.Version()="
+               installed=$( $lua_bin -e "require '${lib}lua'; print(${lib}.Version())" )
+               echo "$installed"
+               eval intented=\$${lib^^}_VER
+               [[ "$intented" != "$installed" ]] && { echo "intented: $intented"; fail="Yes"; }
+            else
+               echo "'${lib}lua' no instalado en '$lua_ver'"
+               fail="Yes"
+            fi
          done
-      } || fail="Yes"
+      else
+         echo "ERROR: debug: '$lua_bin' no existe"
+         fail="Yes"
+      fi
     done
     [[ "$fail" == "Yes" ]] && return 1 || return 0
 }
@@ -403,8 +451,8 @@ KERNEL="Linux32"            #"Linux44" #es para nombre interno del paquete tecgr
 TAR_EXT="tar.gz"
 [[ "`uname -m`" == "x86_64" ]] && TYPE="_64" || TYPE=""
 
-URL='http://codex.bibliohack.org/media/files/tecgraf'
-
+ALT_URL='http://codex.bibliohack.org/media/files/tecgraf'
+SOURCEFORGE="Yes"
 OWN_PATH="$PWD/$0"
 CURRENT_USER="$USER"
 
