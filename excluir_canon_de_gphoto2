@@ -1,0 +1,60 @@
+#!/bin/bash
+
+if [ "$EUID" -ne 0 ]
+  then echo "Por favor ejecutar como root"
+  exit
+fi
+
+OSNAME=`lsb_release -is`
+CODENM=`lsb_release -cs`
+RELEASN=`lsb_release -rs`
+
+echo "Sistema operativo detectado: $OSNAME $RELEASN $CODENM"
+
+if [ "$RELEASN" == '16.04' ] && [ "$OSNAME" == 'Ubuntu' ]
+ then
+   echo
+   echo "Desactivando scripts de inicio de gphoto2 en '/usr/lib/gvfs/'..."
+   cd /usr/lib/gvfs/
+   chmod -x gvfsd-mtp gvfs-mtp-volume-monitor gvfsd-gphoto2 gvfs-gphoto2-volume-monitor && echo " ok" || { echo "error"; exit 1;}
+
+   echo "Eliminando los procesos de gphoto2 actualmente en ejecución..."
+
+   killall -q gvfsd-mtp && echo " gvfsd-mtp killed" 
+   killall -q gvfs-mtp-volume-monitor  && echo " gvfs-mtp-volume-monitor killed"
+   killall -q gvfsd-gphoto2 && echo " gvfsd-gphoto2 killed"
+   killall -q gvfs-gphoto2-volume-monitor && echo " gvfs-gphoto2-volume-monitor killed"
+
+   echo "Excluyendo dispositivos Canon de gphoto2 usando udev..."
+
+   ORIG='/lib/udev/rules.d/60-libgphoto2-6.rules'
+   DEST='/etc/udev/rules.d/60-libgphoto2-6.rules'
+   SEARCH='ENV{ID_USB_INTERFACES}=="", IMPORT{builtin}="usb_id"'
+   INSERT='ENV{ID_USB_INTERFACES}=="*:060101:*", ATTR{idVendor}=="04a9", MODE="0664", GROUP="plugdev", GOTO="libgphoto2_rules_end"'
+
+   if [ -f "$DEST" ]; then
+      if grep -qF "$INSERT" $DEST; then 
+         echo " los dispositivos ya estaban excluidos en '$DEST'"
+         exit 0
+      else
+         echo " el archivo '$DEST' ya existe pero no se detecta la exclusión,  debe revisarlo manualmente"
+         exit 0
+      fi
+   fi
+
+   if [ -f "$ORIG" ]; then
+
+      sudo sed "/$SEARCH/a $INSERT" "$ORIG" > "$DEST"
+
+      if grep -qF "$INSERT" $DEST; then 
+         udevadm control -R
+         echo " ok";
+      else 
+         echo " error: no se puedo insertar la regla en '$DEST'"
+         exit 1
+      fi
+   else
+      echo " error: no se encontró '$ORIG'"
+   fi
+fi
+exit 0
