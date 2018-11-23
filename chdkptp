@@ -50,7 +50,7 @@ function set_chdkptp_profile {
 }
 
 function set_packages_param {
-    DEPS="libusb-1.0-0 libusb-dev  libusb-1.0-0-dev libreadline-dev libreadline6-dev libcairo2-dev subversion git" #liblua5.1-0 lua5.1 liblua5.1-0-dev lua5.2 liblua5.2-dev
+    DEPS="libusb-1.0-0 libusb-dev  libusb-1.0-0-dev libreadline-dev libreadline6-dev libcairo2-dev subversion git" # compatible ubuntu 18.04! #liblua5.1-0 lua5.1 liblua5.1-0-dev lua5.2 liblua5.2-dev
     # tecgraf deps "lua5.1 liblua5.1-0-dev lua5.2 liblua5.2-dev libfreetype6-dev" # libftgl-dev zlib1g-dev
 
     [[ "$PRINT_SELEC" == "Yes" ]] && {

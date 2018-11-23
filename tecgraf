@@ -93,7 +93,18 @@ function set_tecgraf_profile {
 
 function set_packages_param {
 
-    DEPS="lua5.1 liblua5.1-0-dev lua5.2 liblua5.2-dev libfreetype6-dev" # libftgl-dev zlib1g-dev
+    OSNAME=`lsb_release -is`
+    CODENM=`lsb_release -cs`
+    RELEASN=`lsb_release -rs`
+
+    # echo "Instalando en: $OSNAME $RELEASN $CODENM"
+
+    if [ "$RELEASN" == '18.04' ] && [ "$OSNAME" == 'Ubuntu' ]
+     then
+      DEPS="lua5.1 liblua5.1-0-dev lua5.2 liblua5.2-dev libfreetype6-dev libcanberra-gtk-module" # libftgl-dev zlib1g-dev
+    else
+      DEPS="lua5.1 liblua5.1-0-dev lua5.2 liblua5.2-dev libfreetype6-dev" # libftgl-dev zlib1g-dev
+    fi
 
     versions=()
     for lib in 'iup' 'cd' 'im'; do
@@ -422,7 +433,7 @@ function print_version {
     $lua_bin -e "require '${lib}lua'; print(${lib}.Version())"
     return 0
   } || {
-    echo "'${lib}' no instalado."
+    # echo "'${lib}' no instalado." # se usa para saber si las librerias estan no-instaladas
     return 1
   }
 }
@@ -447,6 +458,7 @@ function print_path {
    echo "Este script solo puede utilizarse en sistemas 'GNU/Linux'"
    exit 1
 }
+
 KERNEL="Linux32"            #"Linux44" #es para nombre interno del paquete tecgraf
 TAR_EXT="tar.gz"
 [[ "`uname -m`" == "x86_64" ]] && TYPE="_64" || TYPE=""

@@ -4,7 +4,7 @@ function modify_udev_rules {
 
   tmp_folder=`mktemp -d`
 
-  if [ "$RELEASN" == '16.04' ] && [ "$OSNAME" == 'Ubuntu' ]
+  if [[ "$RELEASN" =~ '16.04'|'18.04' ]] && [ "$OSNAME" == 'Ubuntu' ]
    then
     libgphoto2_rules='60-libgphoto2-6.rules'
     libgphoto2_hwdb='20-libgphoto2-6.hwdb'
