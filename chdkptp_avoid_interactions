@@ -51,11 +51,12 @@ function modify_udev_rules {
         ./tools/run_as_root udevadm control --reload || return 1
         # udevadm hwdb --update && \
         # udevadm control --reload-rules || return 1
-
+        echo "OK"
     else
         cp "$tmp_folder/$libgphoto2_rules" "$etc_rules/$libgphoto2_rules" || return 1
         cp "$tmp_folder/$libgphoto2_hwdb" "$etc_hwdb/$libgphoto2_hwdb" || return 1
         udevadm control --reload || return 1
+        echo "OK"
     fi
   }
 }
@@ -84,4 +85,4 @@ OSNAME=`lsb_release -is`
 CODENM=`lsb_release -cs`
 RELEASN=`lsb_release -rs`
 
-modify_udev_rules || exit 1
+modify_udev_rules || { echo "ocurrio un error!"; exit 1; }

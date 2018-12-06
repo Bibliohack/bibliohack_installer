@@ -12,10 +12,17 @@ Uso:
                                    -> Imprime versión iup|cd|im instalada para
                                       la version de lua indicada (51 por defecto)
 
-    tecgraf print_path=iup|cd|im   -> Imprime la ruta a iup|cd|im para chdkptp.
+    tecgraf print_path=iup|cd|im [tecdir_path=<path>]
+                                   -> Imprime la ruta a iup|cd|im para chdkptp.
 
-    tecgraf install profile=d|u    -> instala iup,cd,im profile de forma
+    tecgraf install [profile=d|u] [tecdir_path=<path>] 
+                    [orig_url=<url>|orig_path=<path>] [orig_dpkg_path=<path>]
+                                   -> instala iup,cd,im profile de forma
                                       no interactiva
+                                      orig_url -> url alternativa con binarios tecgraf
+                                      orig_path -> ruta local a carpeta con binarios tecgraf
+                                      orig_dpkg_path -> ruta local a paquetes para dpkg
+    
 "
 # chequeado en Ubuntu 16.04 OK perfil 'd', no instala LUA 5.2
 
@@ -26,11 +33,17 @@ Uso:
 # TODO: debian probar si funciona o no run_as_root
 # TODO: ubuntu 16.04 profile=u OK
 
+function echoo() {
+	if [ "$QUIET" == "" ]; then
+		echo "$1"
+   fi
+}
+
 function set_tecgraf_profile {
 
-    if [[ "$1" =~ ^profile=[d|u]*$ ]]
+    if [[ "$1" =~ "d"|"u" ]]
      then
-       profile="${1#*=}"
+       profile="$1"
        echo "perfil de intalacion: '$profile'"
     else
       echo "Seleccione el perfil de instalación para Tecgraf:"
@@ -48,7 +61,7 @@ function set_tecgraf_profile {
 
       echo "Seleccione fuente de descarga:"
       echo " - 's' descargar desde sourceforge"
-      echo " - 'a' alternativo"
+      echo " - 'a' bibliohack.org"
       #echo " por defecto usar tarballs/sourceforgue/alternativo" TODO
       echo "(por defecto 's')"
       read -p ">> " sel
@@ -86,7 +99,7 @@ function set_tecgraf_profile {
       IMLUA_EXTRA_TAR=""      #'true'
       lua_vers=( '51' )
     else
-      echo "ERROR: profile = '$profile'"
+      >&2 echo "ERROR: profile = '$profile'"
       exit 1
     fi
 }
@@ -166,12 +179,12 @@ function install_libs {
         echo -n "para instalar iup, cd y im en el sistema es "
         echo "necesario hacerse root..."
         for item in "${items[@]}"; do echo "$item"; done
-        ./tools/run_as_root ./tools/tecgraf/install_libs "${items[@]}" || {
+        "$OWN_DIR/tools/run_as_root" "$OWN_DIR/tools/tecgraf/install_libs" "${items[@]}" || {
             echo "install_libs (root) falló"
             return 1
         }
     else
-       ./tools/tecgraf/install_libs "${items[@]}"  || {
+       "$OWN_DIR/tools/tecgraf/install_libs" "${items[@]}"  || {
            echo "install_libs falló"
            return 1
        }
@@ -264,7 +277,7 @@ function get_installed_libs {
 
 function list_available_folders {
   current_folder="$PWD"
-  cd $TECDIR
+  cd "$TECDIR"
   echo "Instalaciones tecgraf disponibles en '$TECDIR'"
   echo ""
   ls -1d */
@@ -319,12 +332,12 @@ function uninstall_tecgraf {
         echo ""
         echo -n "para desinstalar iup, cd y im en el sistema es "
         echo "necesario hacerse root..."
-        ./tools/run_as_root ./tools/tecgraf/install_libs "${items[@]}" || {
+        "$OWN_DIR/tools/run_as_root" "$OWN_DIR/tools/tecgraf/install_libs" "${items[@]}" || {
             echo "install_libs (root) falló"
             return 1
         }
     else
-       ./tools/tecgraf/install_libs "${items[@]}"  || {
+       "$OWN_DIR/tools/tecgraf/install_libs" "${items[@]}"  || {
            echo "install_libs falló"
            return 1
        }
@@ -336,24 +349,44 @@ function uninstall_tecgraf {
 
 function install_tecgraf {
     echo "Verificando directorio para instalación"
-    ./tools/check_src_dir $TECDIR && echo "OK" || {
-        echo "error: no se pudo crear o modificar '$TECDIR'"
+    "$OWN_DIR/tools/check_src_dir" "$TECDIR" && echo "OK" || {
+        >&2 echo "ERROR: no se pudo crear o modificar '$TECDIR'"
         exit 1
     }
 
-    if ! ./tools/check_pkgs $DEPS; then
+    if ! "$OWN_DIR/tools/check_pkgs" $DEPS; then
         if [ "root" != "$CURRENT_USER" ]; then
             echo "para instalar paquetes con apt-get es necesario hacerse root..."
             # todo check if deb-src enabled
-            ./tools/run_as_root "apt-get install" "$DEPS" || {
-                echo "error al instalar con apt-get"
-                exit 1
-            }
+            if [ "$ORIG_DPKG_PATH" != "" ]; then
+               current_folder="$PWD"
+            	cd "$ORIG_DPKG_PATH"
+	            "$OWN_DIR/tools/run_as_root" "dpkg -i" *.deb || {
+	                >&2 echo "ERROR al instalar con dpkg"
+	                exit 1
+	            }
+	            cd "$current_folder"
+            else
+	            "$OWN_DIR/tools/run_as_root" "apt-get install" "$DEPS" || {
+	                >&2 echo "ERROR al instalar con apt-get"
+	                exit 1
+	            }
+            fi
         else
-            apt-get install $DEPS || {
-                echo "error al instalar con apt-get"
-                exit 1
-            }
+            if [ "$ORIG_DPKG_PATH" != "" ]; then
+                current_folder="$PWD"
+            	cd "$ORIG_DPKG_PATH"
+	            dpkg -i *.deb || {
+	                >&2 echo "ERROR al instalar con dpkg"
+	                exit 1
+	            }
+	            cd "$current_folder"
+            else
+	            apt-get install $DEPS || {
+	                >&2 echo "ERROR al instalar con apt-get"
+	                exit 1
+	            }
+	        fi
         fi
     fi
 
@@ -362,15 +395,20 @@ function install_tecgraf {
                $IM_TAR  $IMLUA51_TAR  $IMLUA52_TAR
     do
         dest=`basename $tar .$TAR_EXT`
-        echo -e "\ndescargando '$tar' para instalar en '$dest'\n"
-        if [ "$SOURCEFORGE" == "Yes" ]
-         then
-          URL="$( sourceforge_link $tar )"
+        if [ "$ORIG_PATH" != "" ]; then
+           echo -e "\ncopiando '$tar' desde '$ORIG_PATH' para instalar en '$dest'\n"
+          "$OWN_DIR/tools/tecgraf/copy_and_untar" $tar "$ORIG_PATH" "$TECDIR" "$dest" || exit 1
         else
-          URL="$ALT_URL"
+           echo -e "\ndescargando '$tar' para instalar en '$dest'\n"
+           if [ "$SOURCEFORGE" == "Yes" ]
+            then
+             URL="$( sourceforge_link $tar )"
+           else
+             URL="$ALT_URL"
+           fi
+           if [[ ! "$URL" ]]; then >&2 echo "ERROR: falló URL = '$URL'"; exit 1; fi
+           "$OWN_DIR/tools/tecgraf/download_and_untar" $tar $URL "$TECDIR" "$dest" || exit 1
         fi
-        if [[ ! "$URL" ]]; then echo " ERROR: falló URL = '$URL'"; exit 1; fi
-        ./tools/download_and_untar $tar $URL $TECDIR $dest || exit 1
     done
 
     install_libs || exit 1
@@ -400,7 +438,7 @@ function test_tecgraf {
             fi
          done
       else
-         echo "ERROR: debug: '$lua_bin' no existe"
+         >&2 echo "ERROR: debug: '$lua_bin' no existe"
          fail="Yes"
       fi
     done
@@ -411,7 +449,7 @@ function print_version {
   [[ "$1" =~ ^(iup|im|cd)$ ]] && {
     lib="$1"
   } || {
-    echo "ERROR: debug: print_version: valor no admitido: '$1'"
+    >&2 echo "ERROR: debug: print_version: valor no admitido: '$1'"
     return 1
   }
 
@@ -423,12 +461,12 @@ function print_version {
       lua_ver="$2"
       lua_bin="/usr/bin/lua${lua_ver:0:1}.${lua_ver:1:1}"
     } || {
-      echo "ERROR: debug: Versión lua no válida: '$2'"
+      >&2 echo "ERROR: debug: Versión lua no válida: '$2'"
       return 1
     }
   }
 
-  [[ -f "$lua_bin" ]] || { echo "ERROR: '$lua_bin' no instalado."; return 1; } #TODO chequear lua path para debian!!
+  [[ -f "$lua_bin" ]] || { >&2 echo "ERROR: '$lua_bin' no instalado."; return 1; } #TODO chequear lua path para debian!!
   $lua_bin -e "require '${lib}lua'" &> /dev/null && {
     $lua_bin -e "require '${lib}lua'; print(${lib}.Version())"
     return 0
@@ -439,7 +477,8 @@ function print_version {
 }
 
 function print_path {
-  [[ "$1" =~ ^(iup|im|cd)$ ]] && lib="$1" || { echo "ERROR: debug: print_path: valor no admitido: '$1'"; return 1; }
+  [[ "$1" =~ ^(iup|im|cd)$ ]] && lib="$1" || { >&2 echo "ERROR: debug: print_path: valor no admitido: '$1'"; return 1; }
+  [[ -d "${TECDIR}" ]] || { >&2 echo "ERROR! no existe '$TECDIR'"; return 1; }
 
   VER=`print_version "${lib}"`
   lib_path="${TECDIR}/${lib}-${VER}_${KERNEL}${TYPE}_lib"
@@ -447,7 +486,7 @@ function print_path {
     echo "${lib_path}"
     return 0
   } || {
-    echo "ERROR! no existe '${lib_path}' para la versión ${VER} de '${lib}'."
+    >&2 echo "ERROR! no existe '${lib_path}' para la versión ${VER} de '${lib}'."
     return 1
   }
 }
@@ -464,63 +503,138 @@ TAR_EXT="tar.gz"
 [[ "`uname -m`" == "x86_64" ]] && TYPE="_64" || TYPE=""
 
 ALT_URL='http://codex.bibliohack.org/media/files/tecgraf'
-SOURCEFORGE="Yes"
-OWN_PATH="$PWD/$0"
+SOURCEFORGE="No"
+
+OWN_SCRIPT_DIR=$(dirname "$0")
+cd "$OWN_SCRIPT_DIR"
+OWN_DIR="$(pwd -P)"
+OWN_PATH="$OWN_DIR/$0"
+
 CURRENT_USER="$USER"
+
+QUIET=""
 
 SRCDIR=/opt/src
 TECDIR=$SRCDIR/tecgraf
+PROFILE_OPT=''
+ACTION=''
+ORIG_PATH=''
 
-arg="$1"
+if [ "$1" == "" ]; then
+   ACTION="install"
+else
+   while [ $# -ne 0 ]
+   do
+      arg="$1"
+      case "$arg" in
+          tecdir_path=*)
+              TECDIR_ALT="${arg#*=}"
+          ;;
+          profile=*)
+              PROFILE_OPT="${arg#*=}"
+          ;;
+          orig_url=*)
+              ALT_URL="${arg#*=}"
+          ;;
+          orig_path=*)
+              ORIG_PATH="${arg#*=}"
+          ;;
+          orig_dpkg_path=*)
+              ORIG_DPKG_PATH="${arg#*=}"
+          ;;
+          uninstall)
+              ACTION="uninstall"
+          ;;
+          install)
+              ACTION="install"
+          ;;
+          print_ver=*)
+              ACTION=""
+              QUIET="quiet"
+              parg="${arg#*=}"
+              parg1="${parg%,*}"
+              parg2="${parg#*,}"
+              [[ "$parg1" == "$parg2" ]] &&{
+                print_version "$parg1" || exit 1
+              } || {
+                print_version "$parg1" "$parg2" || exit 1
+              }
+              exit 0
+          ;;
+          print_path=*)
+              PRINT_PATH_ARG="${arg#*=}"
+              ACTION='print_path'
+              QUIET="quiet"
+          ;;
+          help)
+              echo "$help"
+              exit 0
+          ;;
+          *)
+              >&2 echo "ERROR: parametro desconocido '$1'"
+              echo "$help"
+              exit 1
+          ;;
+      esac
+      shift
+   done
+fi
 
-case "$arg" in
-    uninstall)
-        get_installed_libs || exit 1
-        echo -e "Presione \n ENTER para desinstalar\n 'M' para modificar\n Control+C para salir\n"
-        read -p ">> " continuar
-        if [[ "$continuar" =~ ^(M|m)$ ]]; then
-           list_available_folders
-           modify_libs || exit 1
-        fi
-        set_packages_param
-        uninstall_tecgraf || exit 1
-        test_tecgraf
-    ;;
-    '' | install)
-        get_installed_libs || exit 1
-        if [ "$IUP_VER" ] || [ "$CD_VER" ] || [ "$IM_VER" ]
-         then
-           echo "Existen librerías Tecgraf instaladas en su sistema,"
-           echo "use './tecgraf uninstall' para desinstalarlas."
-           echo
-           exit 1;
-        fi
-        set_tecgraf_profile "$2"
-        set_packages_param
-        install_tecgraf
-        test_tecgraf || exit 1
-    ;;
-    print_ver=*)
-        parg="${arg#*=}"
-        parg1="${parg%,*}"
-        parg2="${parg#*,}"
-        [[ "$parg1" == "$parg2" ]] &&{
-          print_version "$parg1" || exit 1
-        } || {
-          print_version "$parg1" "$parg2" || exit 1
-        }
-    ;;
-    print_path=*)
-        print_path "${arg#*=}" || exit 1
-    ;;
-    help)
-        echo "$help"
-    ;;
-    *)
-        echo "ERROR: parametro desconocido '$1'"
-        echo "$help"
-        exit 1
-    ;;
+if [ "$TECDIR_ALT" != "" ]; then
+	echoo "Comprobando '$TECDIR_ALT'"
+	[[ -d "$TECDIR_ALT" ]] || { echoo "'$TECDIR_ALT' no existe"; exit 1; }
+	[[ -w "$TECDIR_ALT" ]] || { echoo "'$TECDIR_ALT' permisos insuficientes"; exit 1; }
+	TECDIR="$TECDIR_ALT"
+else
+   if [ "$QUIET" == "" ]; then #check_src_dir is not quiet script
+		echo "Verificando directorio /opt/src"
+		"$OWN_DIR/tools/check_src_dir" "/opt/src" && echo "OK" || {
+		    >&2 echo "ERROR: no se pudo crear o modificar '/opt/src'"
+		    exit 1
+		}
+	fi
+fi
+
+if [ "$ORIG_PATH" != "" ]; then
+	echoo "Comprobando '$ORIG_PATH'"
+	[[ -d "$ORIG_PATH" ]] || { echoo "'$ORIG_PATH' no existe"; exit 1; }
+fi
+
+if [ "$ORIG_DPKG_PATH" != "" ]; then
+	echoo "Comprobando $ORIG_DPKG_PATH"
+	[[ -d "$ORIG_DPKG_PATH" ]] || { echoo "'$ORIG_DPKG_PATH' no existe"; exit 1; }
+fi
+
+case "$ACTION" in
+   install)
+      get_installed_libs || exit 1
+      if [ "$IUP_VER" ] || [ "$CD_VER" ] || [ "$IM_VER" ]
+      then
+        echo "Existen librerías Tecgraf instaladas en su sistema,"
+        echo "use './tecgraf uninstall' para desinstalarlas."
+        echo
+        exit 1;
+      fi
+      set_tecgraf_profile "$PROFILE_OPT"
+      set_packages_param
+      install_tecgraf
+      test_tecgraf || exit 1
+   ;;
+   uninstall)
+      get_installed_libs || exit 1
+      echo -e "Presione \n ENTER para desinstalar\n 'M' para modificar\n Control+C para salir\n"
+      read -p ">> " continuar
+      if [[ "$continuar" =~ ^(M|m)$ ]]; then
+         list_available_folders
+         modify_libs || exit 1
+      fi
+      set_packages_param
+      uninstall_tecgraf || exit 1
+      test_tecgraf
+   ;;
+   print_path)
+      print_path "$PRINT_PATH_ARG" || exit 1
+   ;;
 esac
 
 exit 0

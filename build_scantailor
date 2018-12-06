@@ -1,0 +1,201 @@
+#!/bin/bash
+
+#if [ "$(id -u)" != "0" ]; then
+#   echo "Este script debe ejecutarse como root" 1>&2
+#   exit 1
+#fi
+
+# ---------------------------------------------------------------------------------------------------- #
+
+function check_deb_src() {
+  [[ -f "$1" ]] || return 1
+  [[ "$2" == "" ]] && return 1
+  CODENAME="$2"; SOURCES="$1"
+  echo "verificando repositorios en: $CODENAME $SOURCES"
+  if ! grep -q "^deb-src .* $CODENAME main" $SOURCES ${SOURCES}.d/* 2>/dev/null
+   then
+    echo "Debe tener habilitado el repositorio de paquetes fuente (deb-src) de $OSNAME $CODENAME"
+    echo "¿Desea habilitarlo? [S/n]"
+    read -p "> " yn
+    if [[ ! "$yn" =~ (S|s) ]]; then echo "Debera activarlos manualmente para continuar"; return 1; fi
+
+    LM=$( sed -nr "/^# deb-src .* $CODENAME main/p" $SOURCES | wc -l )
+    if [ "$LM" -eq  "1" ]
+     then
+       echo "Activando deb-src para $CODENAME"
+       cp "$SOURCES" "${SOURCES}.bkptmp"
+       sed -i "/^# deb-src .* $CODENAME main/s/^# //" $SOURCES && \
+            echo "OK" || \
+            { echo "No se pudo activar el repositorio de paquetes fuentes en '$SOURCES'"; 
+              echo "Debera activarlos manualmente"
+              return 1; }
+       apt-get update
+    else
+       echo "No se pudo activar el repositorio de paquetes fuentes en '$SOURCES'"; 
+       echo "Debera activarlos manualmente"
+       return 1
+    fi
+  fi
+  return 0
+}
+
+function check_scantailor() {
+if [[ "$SCVER" =~ "enhanced"|"universal" ]]; then
+   [[ -x $SCANTAILOR_SRC_DIR/scantailor-cli ]] && {
+	$SCANTAILOR_SRC_DIR/scantailor-cli -h | grep -q "disable-content-detection" && return 0 || return 1
+   } || return 1 ;
+}
+elif [[ "$SCVER" == "" ]]; then
+   [[ -x $SCANTAILOR_SRC_DIR/scantailor-cli ]] && {
+	$SCANTAILOR_SRC_DIR/scantailor-cli -h | grep -q "Scan Tailor is a post-processing tool for scanned pages." && return 0 || return 1
+   } || return 1 ;
+elif [[ "$SCVER" == "advanced" ]]; then
+   [[ -x $SCANTAILOR_SRC_DIR/scantailor ]] && return 0 || return 1
+   } || return 1 ;
+fi
+
+# ---------------------------------------------------------------------------------------------------- #
+
+OSNAME=`lsb_release -is`
+CODENM=`lsb_release -cs`
+RELEASN=`lsb_release -rs`
+
+if [ "$1" == "" ]; then
+   SCVER=''
+   SCANTAILOR_SRC_DIR='/opt/src/scantailor'
+   GIT_CLONE_CMD="git clone https://github.com/scantailor/scantailor.git $SCANTAILOR_SRC_DIR"
+   if [ "$OSNAME" == "Ubuntu" ] && [[ "$CODENM" == "bionic" ]]
+   elif [ "$OSNAME" == "Ubuntu" ] && [[ "$CODENM" == "xenial" ]]
+   elif [ "$OSNAME" == "Debian" ] && [[ "$RELEASN" == "7.11" ]]
+      # apt-rdepends -b --follow=DEPENDS scantailor
+      SCANTAILOR_DEV_DEP='cmake build-essential libboost-dev libboost-test-dev libjpeg-dev libpng-dev libqt4-dev libqt4-opengl-dev libtiff-dev libxrender-dev txt2man xauth xvfb git subversion' # checkinstall
+      # apt-cache depends scantailor
+      SCANTAILOR_BIN_DEP='libc6 libgcc1 libjpeg8 libpng12-0 libqt4-xml libqtcore4 libqtgui4 libstdc++6 libtiff5 libxrender1' # libjpeg8-dev libjpeg-dev libtiff5-dev libpng12-dev zlib1g-dev libboost-all-dev 
+   else
+     echo "este script no sabe instalar Scantailor '$1' en '$OSNAME $CODENM'"
+     exit 1
+   fi
+elif [ "$1" == "enhanced" ]; then
+   SCVER='enhanced'
+   SCANTAILOR_SRC_DIR='/opt/src/scantailor-enhanced'  
+   if [ "$OSNAME" == "Ubuntu" ] && [[ "$CODENM" =~ "xenial" ]]
+      GIT_CLONE_CMD="git clone -b enhanced https://github.com/d-a-l/scantailor.git $SCANTAILOR_SRC_DIR"
+      # apt-rdepends -b --follow=DEPENDS scantailor
+      SCANTAILOR_DEV_DEP='cmake build-essential libboost-all-dev libjpeg8-dev libtiff5-dev libpng12-dev libqt4-dev zlib1g-dev libxrender-dev txt2man xauth xvfb git subversion' 
+      # apt-cache depends scantailor
+      SCANTAILOR_BIN_DEP='libc6 libgcc1 libjpeg8 libpng12-0 libqt4-xml libqtcore4 libqtgui4 libstdc++6 libtiff5 libxrender1' # libjpeg8-dev libjpeg-dev libtiff5-dev libpng12-dev zlib1g-dev libboost-all-dev 
+   elif [ "$OSNAME" == "Debian" ] && [[ "$RELEASN" =~ "7.11" ]]
+      GIT_CLONE_CMD="git clone -b enhanced https://github.com/scantailor/scantailor.git $SCANTAILOR_SRC_DIR"
+      # apt-rdepends -b --follow=DEPENDS scantailor
+      SCANTAILOR_DEV_DEP='cmake build-essential libboost-dev libboost-test-dev libjpeg-dev libpng-dev libqt4-dev libqt4-opengl-dev libtiff-dev libxrender-dev txt2man xauth xvfb git subversion' # checkinstall
+      # apt-cache depends scantailor
+      SCANTAILOR_BIN_DEP='libc6 libgcc1 libjpeg8 libpng12-0 libqt4-xml libqtcore4 libqtgui4 libstdc++6 libtiff5 libxrender1' # libjpeg8-dev libjpeg-dev libtiff5-dev libpng12-dev zlib1g-dev libboost-all-dev 
+   else
+     echo "este script no sabe instalar Scantailor '$1' en '$OSNAME $CODENM'"
+     exit 1
+   fi
+elif [ "$1" == "universal" ]; then
+   SCVER='universal'
+   SCANTAILOR_SRC_DIR='/opt/src/scantailor-universal'  
+   if [ "$OSNAME" == "Ubuntu" ] && [[ "$CODENM" =~ "bionic" ]]
+   else
+     echo "este script no sabe instalar Scantailor '$1' en '$OSNAME $CODENM'"
+     exit 1
+   fi
+elif [ "$1" == "advanced" ]; then
+   SCVER='advanced'
+   SCANTAILOR_SRC_DIR='/opt/src/scantailor-advanced'
+   if [ "$OSNAME" == "Ubuntu" ] && [[ "$CODENM" =~ "bionic" ]]
+   else
+     echo "este script no sabe instalar Scantailor '$1' en '$OSNAME $CODENM'"
+     exit 1
+   fi
+else
+   echo "opcion no valida: $1"
+   exit 1
+fi
+
+
+if [ "$SCVER" == "advanced" ]; then
+   if [[ "$CODENM" == 'bionic' ]] && [ "$OSNAME" == 'Ubuntu' ]; then
+      cmake_ver=$(dpkg -s cmake | grep Version | awk '{ print $2 }')
+      if [[ "$cmake_ver" =~ ^"3.12" ]]; then
+         echo "cmake $cmake_ver no necesita actualizarse"
+      else
+			echo "Descargando cmake 3.12.."
+			cd /opt/src && 
+				wget https://cmake.org/files/v3.12/cmake-3.12.4.tar.gz && 
+				tar xzvf cmake-3.12.4.tar.gz && 
+				cd cmake-3.12.4 || exit 1
+			echo "cmake 3.12 descargado OK"
+			echo "Compilando cmake 3.12 e instalando.."
+         if command -v nproc 2>/dev/null; then
+			    ./bootstrap && { make -j `nproc` || exit 1 }
+			   else			
+			    ./bootstrap && { make || exit 1 }
+			fi
+			echo "cmake 3.12 compilado OK"
+			echo "Desinstalando version previa de cmake..."
+			run_as_root( "apt-get" "-y remove cmake") && sudo apt-get -y purge --auto-remove cmake || exit 1
+			echo "Version previa de cmake desinstalada"
+			echo "instalando cmake 3.12"
+			sudo make install
+		fi
+	fi
+fi
+
+
+check_scantailor && { echo "Scantailor $SCVER ya está instalado"; exit 0; }
+[[ -d $SCANTAILOR_SRC_DIR ]] && { 
+   echo "Existe una instalacion previa inconclusa de Scantailor $SCVER"
+   echo "Elimine '$SCANTAILOR_SRC_DIR'"
+   exit 0
+   }
+
+# cat /etc/issue.net # lsb_release  -cs -> 'xenial'
+
+echo "Instalando Scantailor $SCVER en: $OSNAME $RELEASN $CODENM"
+
+check_deb_src /etc/apt/sources.list "$CODENM" || { echo ":("; exit 0; }
+
+apt-get update
+
+echo "Instalando dependencias de Scantailor (binario)"
+apt-get install -y $SCANTAILOR_BIN_DEP && echo "OK" || { echo "FAIL"; exit 1; }
+
+echo "Instalando dependencias de Scantailor (compilación)"
+apt-get install -y $SCANTAILOR_DEV_DEP && echo "OK" || { echo "FAIL"; exit 1; }
+
+echo "Comprobando directorio para compilación"
+[[ -d "/opt/src" ]] && echo "OK /opt/src exist" || { mkdir /opt/src || exit 1; }
+[[ -w "/opt/src" ]] && echo "OK /opt/src writable" || { chmod a+rw /opt/src || exit 1; }
+cd /opt/src || exit 1
+
+echo "Clonando repositorio Scantailor en $SCANTAILOR_SRC_DIR"
+$GIT_CLONE_CMD || exit 1
+
+if [[ -d "$SCANTAILOR_SRC_DIR" ]]
+ then
+   cd "$SCANTAILOR_SRC_DIR"
+   echo "Compilando Scantailor $SCVER"
+   mkdir build && cd build || exit 1
+   if command -v nproc 2>/dev/null; then
+      cmake .. && { make -j `nproc` || exit 1; }
+   else
+      cmake .. && { make || exit 1; }
+   fi
+   mv build /opt
+   # checkinstall --pkgname scantailor --pkgversion ?? --pkgrelease ??
+else
+   echo "no existe '$SCANTAILOR_SRC_DIR'"
+fi
+
+check_scantailor && echo "Scantailor instalado exitosamente en '$SCANTAILOR_SRC_DIR'" || { echo "Falló la instalacion de Scantailor enhanced"; exit 1; } 
+
+echo "Para ejecutar scantailor $SCVER use:"
+if [ "$SCVER" != "advanced" ]; then
+   echo " '$SCANTAILOR_SRC_DIR/scantailor-cli' (linea de comandos) ó"
+fi
+echo " '$SCANTAILOR_SRC_DIR/scantailor' (interfase gráfica)"
+
+exit 0

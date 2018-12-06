@@ -1,12 +1,14 @@
 #!/bin/bash
 
+# copia y descomprime los archivos tar de tecgraf
+
 [[ "$1" == "" ]] && exit 1 || FILE="$1"
-[[ "$2" == "" ]] && exit 1 || URL="$2"
+[[ "$2" == "" ]] && exit 1 || ORIG="$2"
 [[ "$3" == "" ]] && exit 1 || FOLDER="$3"
 [[ "$4" == "" ]] && UNTAR="$FOLDER" || UNTAR="$4"
-wget -N "$URL"/"$FILE" -P "$FOLDER"
+cp -rp "$ORIG"/"$FILE" "$FOLDER"/
 [[ -f "$FOLDER"/"$FILE" ]] || { 
-   echo "no pudo descargarse '$FILE'"
+   echo "no pudo copiarse '$FILE'"
    exit 1 
 }
 if [ -d "$FOLDER"/"$UNTAR" ]; then

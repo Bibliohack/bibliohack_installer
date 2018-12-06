@@ -1,0 +1,138 @@
+#!/bin/bash
+
+function check_and_remove_pkg() {
+
+  for pkg in "$@"; do
+      echo "$pkg"
+      if dpkg-query -W --showformat='${Status}\n' "$pkg" 2>/dev/null | grep -q "install ok installed"
+       then
+         sudo apt-get -y remove "$pkg" || { echo "error! '$pkg'"; return 1; }
+         echo "OK, '$pkg' removed"
+      fi
+      echo "OK, '$pkg' not installed"
+   done  
+   return 0
+}
+
+function check_and_install_pkg() {
+   for pkg in "$@"; do
+      echo "$pkg"
+      if dpkg-query -W --showformat='${Status}\n' "$pakg" 2>/dev/null | grep -q "install ok installed"
+       then
+         echo "OK, '$pkg' already installed"
+      else
+         sudo apt-get -y install "$pkg" || { echo "error! '$pkg'"; return 1; }
+      echo "OK, '$pkg' installed"
+      fi
+   done
+   return 0
+}
+
+
+case $(tty) in 
+ /dev/tty[0-9]*)
+   echo "Verificando terminal: OK" 
+   ;;
+ *)
+   echo "Este script debe ejecutarse desde una terminal virtual," 
+   echo "no dentro de un emulador de terminal en una sesion grafica."
+   echo "Use Ctrl + Alt + una tecla de función, por ejemplo Ctrl + Alt + F3"
+   echo "Luego ingrese su usuario/contraseña de linux"
+   exit 1
+esac
+
+OSNAME=`lsb_release -is`
+CODENM=`lsb_release -cs`
+RELEASN=`lsb_release -rs`
+
+if [ "$RELEASN" == '18.04' ] && [ "$OSNAME" == 'Ubuntu' ]
+ then
+   echo "Instalando en: $OSNAME $RELEASN $CODENM"
+else
+   echo "Este script es para instalar Bibliohack en Ubuntu 18.04"
+   exit 1
+fi
+
+ARCH="$(uname -m)"
+
+OWN_PATH="$PWD/$0"
+CURRENT_USER="$USER"
+
+if [ "$CURRENT_USER" == "root" ]
+ then
+  echo "Este script no debe ejecutarse como 'root'"
+  echo "Ejecutelo con el usuario de bibliohack"
+  exit 1
+fi
+
+# instalacion de entorno de escritorio
+
+check_and_remove_pkg 'ubuntu-session' 'gdm3' || { echo "error!"; return 1; }
+
+check_and_install_pkg 'lightdm' 'gnome-session-flashback' || { echo "error!"; return 1; }
+
+# slick-greeter lightdm-settings
+# /etc/lightdm/slick-greeter.conf
+# ? gnome-tweaks
+
+# arc-theme
+
+# dconf-tools
+# gnome-tweaks
+
+#gsettings set org.gnome.nautilus.preferences always-use-location-entry true
+
+# telegram
+
+sudo apt-get install -y telegram-desktop
+
+telegram_desktop_entry="[Desktop Entry]
+Type=Application
+Exec=telegram-desktop
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+Name[es_AR]=Telegram
+Name=Telegram
+Comment[es_AR]=
+Comment="
+
+autostart_path="~/.config/autostart"
+
+if [[ ! -d "$autostart_path" ]]
+ then
+   mkdir "$autostart_path" || { echo "error!"; return 1; }
+fi
+
+echo "$telegram_desktop_entry" > "$autostart_path/telegram-desktop.desktop" || { echo "error!"; return 1; }
+
+# micro
+
+[[ -f /usr/bin/micro ]] || {
+   sudo apt-get -y install curl xclip && cd /usr/bin && curl https://getmic.ro | sudo bash ||  { echo "error!"; return 1; }
+   cd
+   echo "micro installed"
+}
+
+# keybase
+
+sudo apt-get -y install gconf-service gconf-service-backend gconf2-common libappindicator1 || { echo "error!"; return 1; }
+
+cd /opt || { echo "error!"; return 1; }
+
+if [ "$ARCH" == "x86_64" ]
+ then
+   sudo curl -O https://prerelease.keybase.io/keybase_amd64.deb
+elif [ "$ARCH" == "i386" ] || [ "$ARCH" == "i686" ]
+   sudo curl -O https://prerelease.keybase.io/keybase_i386.deb
+fi 
+
+if [[ -f "keybase_amd64.deb" ]]
+  then
+   sudo dpkg -i keybase_amd64.deb && sudo apt-get install -f 
+   #run_keybase
+   echo "OK: keybase instalado!"
+   keybase signup
+else
+   echo "error: keybase no instalado"
+fi

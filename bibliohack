@@ -1,16 +1,5 @@
 #!/bin/bash
 
-case $(tty) in 
- /dev/tty[0-9]*)
-   echo "Verificando terminal: OK" 
-   ;;
- *)
-   echo "Este script debe ejecutarse desde una terminal virtual," 
-   echo "no dentro de un emulador de terminal en una sesion grafica."
-   echo "Use Ctrl + Alt + una tecla de función, por ejemplo Ctrl + Alt + F3"
-   echo "Luego ingrese su usuario/contraseña de linux"
-esac
-
 OSNAME=`lsb_release -is`
 CODENM=`lsb_release -cs`
 RELEASN=`lsb_release -rs`
@@ -20,33 +9,24 @@ if [ "$RELEASN" == '18.04' ] && [ "$OSNAME" == 'Ubuntu' ]
    echo "Instalando en: $OSNAME $RELEASN $CODENM"
 else
    echo "Este script es para instalar Bibliohack en Ubuntu 18.04"
+   exit 1
 fi
 
 OWN_PATH="$PWD/$0"
 CURRENT_USER="$USER"
+ARCH="$(uname -m)"
 
-[[ "$1" == "" ]] && SRCDIR=/opt/src || SRCDIR="$1"
+SRCDIR="/opt/src"
 
-[[ -d "$SRCDIR" ]] || { 
-   sudo mkdir "$SRCDIR" || {
-      [[ -d "$(dirname "$SRCDIR")" ]] && \
-         echo "error: no se pudo crear '$SRCDIR' porque no existe " ||\
-         echo "verifique que la carpeta padre exista"
-      exit 1
-   } 
-}
+if [[ ! -d "/opt" ]]; then
+  sudo mkdir "/opt" || { echo "error!"; exit 1;}
+fi
 
-sudo chmod a+rw "$SRCDIR" && exit 0 || { echo "error!"; exit 1; }
+if [[ ! -d "$SRCDIR" ]]; then 
+  sudo mkdir "$SRCDIR" || { echo "error!"; exit 1;}
+fi
 
-# instalacion de entorno de escritorio
-
-sudo /etc/init.d/gdm3 stop || { echo "No se pudo cerrar el entorno de escritorio"; exit 1; }
-sudo apt-get -y install gnome-session-flashback || { echo "error!"; exit 1; }
-sudo apt-get remove ubuntu-session || { echo "error!"; exit 1; }
-sudo apt-get install telegram-desktop
-
-sudo apt-get -y install curl xclip && cd /usr/bin && curl https://getmic.ro | sudo bash
-cd
+sudo chmod a+rw "$SRCDIR" || { echo "error!"; exit 1; }
 
 # instaladores
 
@@ -54,8 +34,8 @@ sudo apt-get -y install git subversion || { echo "error!"; exit 1; }
 if [[ -d "$SRCDIR/instaladores" ]] 
  then 
   echo "Instaladores ya está instalado en '/opt/src/instaladores'!"
-  cd "$SRCDIR"/instaladores || exit 1
-  git pull || exit 1
+  # cd "$SRCDIR"/instaladores
+  # git pull || exit 1
 else
   git clone http://github.com/d-a-l/instaladores.git "$SRCDIR"/instaladores || exit 1
 fi
@@ -74,7 +54,7 @@ cd "$SRCDIR"/instaladores || {
   echo "es ese caso use cada script de instaladores para agregar o quitar componentes."
   exit 1
 }
-[[ -d "$SRCDIR/scantailor-enhanced" ]] && { 
+[[ -d "$SRCDIR/scantailor-advanced" ]] && { 
   echo "Scantailor está instalado en '/opt/src/scantailor-enhanced'"
   echo "No use este script si ya existe una instalción previa,"
   echo "es ese caso use cada script de instaladores para agregar o quitar componentes."
@@ -96,20 +76,24 @@ if [ "$check_iup_ver" != "" ]
   exit 1
 fi
 
+cd "$SRCDIR/instaladores"
+
 # tecgraf
-"$SRCDIR"/instaladores/tecgraf install profile=d || { echo "error!"; exit 1; }
+./tecgraf install profile=d || { echo "error!"; exit 1; }
 
 # chdkptp
-"$SRCDIR"/instaladores/chdkptp install profile=d || { echo "error!"; exit 1; }
+./chdkptp install profile=d || { echo "error!"; exit 1; }
 
 # Scantailor
-sudo "$SRCDIR"/instaladores/scantailor-enhanced || { echo "error!"; exit 1; }
+sudo ./scantailor-advanced || { echo "error!"; exit 1; }
+
+
 
 # PDFBeads-kopi
+cd  "$SRCDIR"
 sudo apt-get -y install ruby-full ruby-dev rubygems || { echo "error!"; exit 1; }
-sudo apt-get -y install ruby-rmagick ruby-hpricot || { echo "error!"; exit 1; }
+sudo apt-get -y install ruby-nokogiri ruby-rmagick ruby-hpricot || { echo "error!"; exit 1; }
 sudo gem install iconv || { echo "error!"; exit 1; }
-sudo gem install nokogiri || { echo "error!"; exit 1; }
 
 git clone http://github.com/d-a-l/pdfbeads-kopi.git "$SRCDIR"/pdfbeads-kopi || exit 1
 
@@ -141,5 +125,10 @@ git checkout singlecam || exit 1
 git clone http://github.com/d-a-l/fcen-tesis.git "$SRCDIR"/fcen-tesis || exit 1
 
 # 
+cd "$SRCDIR/instaladores"
+./chdkptp_avoid_interactions || echo "error! chdkptp and gphoto2!"
 
-"$SRCDIR"/instaladores/chdkptp_avoid_interactions || echo "error! chdkptp and gphoto2!"
+# if [ "$RELOAD_GDM3" == "Si" ]
+#    sudo /etc/init.d/gdm3 restart || { echo "No se pudo cerrar el entorno de escritorio"; exit 1; }
+#  then
+# fi

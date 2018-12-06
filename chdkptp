@@ -7,9 +7,9 @@
 
 function set_chdkptp_profile {
 
-    if [[ "$1" =~ ^profile=[d|u]*$ ]]
+    if [[ "$1" =~ "d"|"u" ]]
      then
-       profile="${1#*=}"
+       profile="$1"
        echo "perfil de intalacion: '$profile'"
     else
       echo "Seleccione el perfil de instalación para CHDKPTP:"
@@ -44,13 +44,24 @@ function set_chdkptp_profile {
       CD_VER="5.6.1"
       IM_VER="3.8.2"
     else
-      echo "ERROR: profile = '$profile'"
+      >&2 echo "ERROR: profile = '$profile'"
       exit 1
     fi
 }
 
 function set_packages_param {
-    DEPS="libusb-1.0-0 libusb-dev  libusb-1.0-0-dev libreadline-dev libreadline6-dev libcairo2-dev subversion git" # compatible ubuntu 18.04! #liblua5.1-0 lua5.1 liblua5.1-0-dev lua5.2 liblua5.2-dev
+
+    # echo "Instalando en: $OSNAME $RELEASN $CODENM"
+
+    if [ "$RELEASN" == '18.04' ] && [ "$OSNAME" == 'Ubuntu' ]
+     then
+      DEPS="libusb-1.0-0 libusb-dev  libusb-1.0-0-dev libreadline-dev libcairo2-dev subversion git" # libreadline6-dev #liblua5.1-0 lua5.1 liblua5.1-0-dev lua5.2 liblua5.2-dev
+      # apt selecciona libreadline-dev sobre libreadline6-dev, 
+      # si dejamos los dos, entonces tools/check_pkgs informa que faltan dependencias y se llama a apt
+    else
+      #TODO: checkear dependencias en ubuntu 16.04 y debian 7.11
+      DEPS="libusb-1.0-0 libusb-dev  libusb-1.0-0-dev libreadline-dev libreadline6-dev libcairo2-dev subversion git" #liblua5.1-0 lua5.1 liblua5.1-0-dev lua5.2 liblua5.2-dev
+    fi
     # tecgraf deps "lua5.1 liblua5.1-0-dev lua5.2 liblua5.2-dev libfreetype6-dev" # libftgl-dev zlib1g-dev
 
     [[ "$PRINT_SELEC" == "Yes" ]] && {
@@ -64,42 +75,79 @@ function set_packages_param {
 }
 
 function install_chdkptp {
-    echo "Verificando directorio para instalación"
-    ./tools/check_src_dir $CHDKPTP_DIR && echo "OK" || {
-        echo "error: no se pudo crear o modificar '$CHDKPTP_DIR'"
-        exit 1
-    }
+	echo "Verificando directorio para instalación"
+	"$OWN_DIR/tools/check_src_dir" "$CHDKPTP_DIR" && echo "OK" || {
+	    >&2 echo "ERROR: no se pudo crear o modificar '$CHDKPTP_DIR'"
+	    exit 1
+	}
 
-    if ! ./tools/check_pkgs $DEPS; then
-        if [ "root" != "$CURRENT_USER" ]; then
-            echo "para instalar paquetes con apt-get es necesario hacerse root..."
-            # todo check if deb-src enabled
-            ./tools/run_as_root "apt-get install" "$DEPS" || {
-                echo "error al instalar con apt-get"
-                exit 1
-            }
-        else
-            apt-get install $DEPS || {
-                echo "error al instalar con apt-get"
-                exit 1
-            }
-        fi
-    fi
-    check_tecgraf_ver || { echo "ERROR: dependencias insastifechas: librerías tecgraf. Ejecute '/opt/src/instaladores/tecgraf'"; exit 1; }
-    svn co http://subversion.assembla.com/svn/chdkptp/trunk "$CHDKPTP_DIR"
-    cd "$CHDKPTP_DIR"
-    if [ "${CHDKPTP_VER}" != "" ]; then
-      echo "revirtiendo a la versión '${CHDKPTP_VER}'..."
-      svn up -r${CHDKPTP_VER} || exit 1
-    fi
-    config_file=`get_config_file`
-    echo "$config_file" > config.mk
-    make && return 0 || return 1
+	if ! "$OWN_DIR/tools/check_pkgs" $DEPS; then
+	    if [ "root" != "$CURRENT_USER" ]; then
+	        if [ "$ORIG_DPKG_PATH" != "" ]; then
+	    			current_folder="$PWD"
+              	cd "$ORIG_DPKG_PATH"
+  	            "$OWN_DIR/tools/run_as_root" "dpkg -i" *.deb || {
+  	                >&2 echo "ERROR al instalar con dpkg"
+  	                exit 1
+  	            }
+  	            cd "$current_folder"
+	        else
+		        echo "para instalar paquetes con apt-get es necesario hacerse root..."
+		        "$OWN_DIR/tools/run_as_root" "apt-get install" "$DEPS" || {
+		            >&2 echo "ERROR al instalar con apt-get"
+		            exit 1
+		        }
+	        fi
+	    else
+	    	  if [ "$ORIG_DPKG_PATH" != "" ]; then
+               current_folder="$PWD"
+           	   cd "$ORIG_DPKG_PATH"
+               dpkg -i *.deb || {
+                   >&2 echo "ERROR al instalar con dpkg"
+                   exit 1
+               }
+               cd "$current_folder"
+           else
+		        apt-get install $DEPS || {
+		            >&2 echo "ERROR al instalar con apt-get"
+		            exit 1
+		        }
+		     fi
+	    fi
+	fi
+	
+	
+	if [ "$ORIG_URL" != "" ]; then
+	   FILE="${ORIG_URL##*/}"
+	   FILE_WE=`basename $FILE tar.gz`
+		wget -N "$ORIG_URL" -P "$CHDKPTP_DIR" || exit 1
+		cd "$CHDKPTP_DIR" || exit 1
+		tar xzvf "$FILE"
+		cd "$FILE_WE" || { echo "no existe $FILE_WE! falló la instalación"; exit 1; }
+	elif [ "$ORIG_PATH" != "" ]; then
+	   FILE="${ORIG_PATH##*/}"
+	   FILE_WE=`basename $FILE tar.gz`
+		cp -rp "$ORIG_PATH" "$CHDKPTP_DIR"/ || exit 1
+		cd "$CHDKPTP_DIR" || exit 1
+		tar xzvf "$FILE"
+		cd "$FILE_WE" || { echo "no existe $FILE_WE! falló la instalación"; exit 1; }	
+	else
+		svn co http://subversion.assembla.com/svn/chdkptp/trunk "$CHDKPTP_DIR"
+		cd "$CHDKPTP_DIR"
+		if [ "${CHDKPTP_VER}" != "" ]; then
+			echo "revirtiendo a la versión '${CHDKPTP_VER}'..."
+			svn up -r${CHDKPTP_VER} || exit 1
+		fi
+	fi
+	config_file=`get_config_file`
+	echo "$config_file" > config.mk
+	make && return 0 || return 1
 }
 
 function get_config_file {
-  IUP_LIB_DIR=`$TECGRAF_INSTALLER print_path=iup`
-  CD_LIB_DIR=`$TECGRAF_INSTALLER print_path=cd`
+  IUP_LIB_DIR=`$TECGRAF_COMMAND print_path=iup tecdir_path=$TECGRAF_PATH`
+  CD_LIB_DIR=`$TECGRAF_COMMAND print_path=cd tecdir_path=$TECGRAF_PATH`
+  if [[ "$IUP_LIB_DIR" == "" ]] || [[ "$CD_LIB_DIR" == "" ]]; then exit 1; fi
   config_file_d="
 IUP_SUPPORT=1
 CD_SUPPORT=1
@@ -116,7 +164,7 @@ IUP_INCLUDE_DIR=${IUP_LIB_DIR}/include
 CD_LIB_DIR=${CD_LIB_DIR}
 CD_INCLUDE_DIR=${CD_LIB_DIR}/include
 "
-#TODO!! chequera config_file_u!!
+#TODO!! chequear config_file_u!!
   config_file_u="
 IUP_SUPPORT=1
 CD_SUPPORT=1
@@ -152,10 +200,8 @@ function test_chdkptp {
   export LUA_PATH="./lua/?.lua"
   chdkptp_out=$( ./chdkptp -h | head -n 1 )
   if [ "$chdkptp_out" == "CHDK PTP control utility" ]; then
-    echo "chdkptp instalado con éxito"
     return 0
   else
-    echo "chdkptp no instalado"
     return 1
   fi
 }
@@ -163,10 +209,10 @@ function test_chdkptp {
 function check_tecgraf_ver { # tambien version!
   fail=''
   for lib in 'iup' 'cd' 'im'; do
-    if ${TECGRAF_INSTALLER} "print_ver=${lib}" > /dev/null 2>&1
+    if ${TECGRAF_COMMAND} "print_ver=${lib}" > /dev/null 2>&1
      then
       required_ver=$( eval echo "\$${lib^^}_VER" )
-      installed_ver=`${TECGRAF_INSTALLER} "print_ver=${lib}"`
+      installed_ver=`${TECGRAF_COMMAND} "print_ver=${lib}"`
       echo -n "${lib}: instalada:'$installed_ver' requerida:'$required_ver' .."
       [[ "$installed_ver" == "$required_ver" ]] && {
         echo "OK"
@@ -175,7 +221,7 @@ function check_tecgraf_ver { # tambien version!
         fail="Yes"
       }
     else
-      echo "ERROR: '$lib' no instalada."
+      >&2 echo "ERROR: '$lib' no instalada."
       return 1
     fi
   done
@@ -190,27 +236,138 @@ function check_tecgraf_ver { # tambien version!
 }
 #[[ "`uname -m`" == "x86_64" ]] && TYPE="_64" || TYPE=""
 
-OWN_PATH="$PWD/$0"
+OSNAME=`lsb_release -is`
+CODENM=`lsb_release -cs`
+RELEASN=`lsb_release -rs`
+
+if [ "$RELEASN" == '18.04' ] && [ "$OSNAME" == 'Ubuntu' ]; then
+   : 
+else
+	echo "Este instalador no ha sido probado en $OSNAME $RELEASE"
+	echo "OK en Ubuntu 18.04"
+	echo "continuar? (s/N)"
+	read tecla
+	if [ "$tecla" != "s" ] || [ "$tecla" != "S" ]; then exit 0; fi
+fi
+
+OWN_SCRIPT_DIR=$(dirname "$0")
+cd "$OWN_SCRIPT_DIR"
+OWN_DIR="$(pwd -P)"
+OWN_PATH="$OWN_DIR/$0"
+
 CURRENT_USER="$USER"
-TECGRAF_INSTALLER="$PWD/tecgraf" # TODO!!!
+
+TECGRAF_COMMAND="$PWD/tecgraf"
+
 SRCDIR=/opt/src
 CHDKPTP_DIR=$SRCDIR/chdkptp
+TECGRAF_PATH=$SRCDIR/tecgraf
 
-case "$1" in
-    uninstall)
-    ;;
-    '' | install)
-        set_chdkptp_profile "$2" # $2=profile=d\u
-        set_packages_param
-        install_chdkptp || exit 1
-        test_chdkptp && exit 0 || exit 1
-    ;;
-    test)
-        test_chdkptp && exit 0 || exit 1
-    ;;
-    *)
-        echo "ERROR: parametro desconocido '$1'"
-        exit 1
+PROFILE_OPTION=''
+ACTION=''
+
+ORIG_DPKG_PATH=""
+
+if [ "$1" == "" ]; then
+   ACTION="install"
+else
+	while [ $# -ne 0 ]
+	do
+	   arg="$1"
+		case "$arg" in
+		   profile=*)
+		   	PROFILE_OPTION="${arg#*=}"
+		   ;;
+		   tecgraf_path=*)
+		   	ALT_TECGRAF_PATH="${arg#*=}"
+		   ;;
+		   chdkptp_path=*)
+		   	ALT_CHDKPTP_DIR="${arg#*=}"
+		   ;;
+		   orig_path=*)
+		   	ORIG_PATH="${arg#*=}"
+		   ;;
+		   orig_dpkg_path=*)
+		   	ORIG_DPKG_PATH="${arg#*=}"
+		   ;;
+		   orig_url=*)
+		   	ORIG_URL="${arg#*=}"
+		   ;;
+		   uninstall)
+		   	ACTION='uninstall'
+		   ;;
+		   install)
+		   	ACTION='install'
+		   ;;
+		   test)
+		   	ACTION='test'
+		   ;;
+		   *)
+	      	>&2 echo "ERROR: parametro desconocido '$1'"
+		      exit 1
+		esac
+		shift
+	done
+fi
+
+if [ "$ALT_TECGRAF_PATH" != "" ]; then
+	echo "Comprobando '$ALT_TECGRAF_PATH'"
+	[[ -d "$ALT_TECGRAF_PATH" ]] || { echo "'$ALT_TECGRAF_PATH' no existe"; exit 1; }
+	TECGRAF_PATH="$ALT_TECGRAF_PATH"
+fi
+
+if [ "$ALT_CHDKPTP_DIR" != "" ]; then
+	echo "Comprobando '$ALT_CHDKPTP_DIR'"
+	[[ -d "$ALT_CHDKPTP_DIR" ]] || { echo "'$ALT_CHDKPTP_DIR' no existe"; exit 1; }
+	CHDKPTP_DIR="$ALT_CHDKPTP_DIR"
+fi
+
+if [[ "$CHDKPTP_DIR" =~ ^"/opt/src" ]]; then
+	echo "Verificando directorio /opt/src"
+	"$OWN_DIR/tools/check_src_dir" "/opt/src" && echo "OK" || {
+	    >&2 echo "ERROR: no existe o permisos insuficientes en '/opt/src'"
+	    exit 1
+	}
+fi
+
+if [ "$ORIG_PATH" != "" ]; then
+	echo "Comprobando '$ORIG_PATH'"
+	[[ -d "$ORIG_PATH" ]] || { echo "'$ORIG_PATH' no existe"; exit 1; }
+fi
+
+if [ "$ORIG_DPKG_PATH" != "" ]; then
+	echo "Comprobando $ORIG_DPKG_PATH"
+	[[ -d "$ORIG_DPKG_PATH" ]] || { echo "'$ORIG_DPKG_PATH' no existe"; exit 1; }
+fi
+
+
+case "$ACTION" in
+   install)
+      test_chdkptp && { echo "chdkptp ya esta instalado"; exit 0; }
+      set_chdkptp_profile "$PROFILE_OPTION" # $2=profile=d\u
+      check_tecgraf_ver || { echo "Dependencias insastifechas: librerías tecgraf. Ejecute '/opt/src/instaladores/tecgraf'"; exit 1; }
+      set_packages_param
+      install_chdkptp || exit 1
+      test_chdkptp && { 
+      	echo "chdkptp instalado con éxito en '$CHDKPTP_DIR'!"
+      	exit 0
+      } || { 
+      	echo "ERROR: chdkptp no se instaló!"
+      	exit 1 
+      }
+   ;;
+   uninstall)
+      #TODO
+   ;;
+   test)
+      test_chdkptp && { 
+      	echo "chdkptp instalado en '$CHDKPTP_DIR'"
+      	exit 0
+      } || { 
+      	echo "chdkptp NO está instalado en '$CHDKPTP_DIR'"
+      	exit 1 
+      }
+   ;;
 esac
 
 exit 0

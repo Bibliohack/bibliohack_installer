@@ -5,7 +5,9 @@ if [ "$(id -u)" != "0" ]; then
    exit 1
 fi
 
-SCANTAILOR_SRC_DIR='/opt/src/scantailor-enhanced'
+SCANTAILOR_SRC_DIR='/opt/src/scantailor-advanced'
+REMOTE_SRC='files/bibliohack.org/packages'
+LOCAL_SRC='/opt/bibliohack/packages'
 
 # ---------------------------------------------------------------------------------------------------- #
 
@@ -41,15 +43,19 @@ function check_deb_src() {
   return 0
 }
 
-function check_scantailor_enh() {
-   [[ -x $SCANTAILOR_SRC_DIR/scantailor-cli ]] && {
-	$SCANTAILOR_SRC_DIR/scantailor-cli -h | grep -q "disable-content-detection" && return 0 || return 1
+function check_scantailor_adv() {
+   [[ -x $SCANTAILOR_SRC_DIR/build/scantailor ]] && return 0 || return 1
    } || return 1 ;
 }
 
 # ---------------------------------------------------------------------------------------------------- #
 
-check_scantailor_enh && { echo "Scantailor enhanced ya está instalado"; exit 0; }
+echo "este script todavia no fue testeado!!!"
+exit 0
+
+#
+
+check_scantailor_adv && { echo "Scantailor advanced ya está instalado"; exit 0; }
 
 [[ -d $SCANTAILOR_SRC_DIR ]] && { echo "Existe una instalacion previa inconclusa"; exit 0; }
 
@@ -62,33 +68,46 @@ echo "Instalando en: $OSNAME $RELEASN $CODENM"
 
 check_deb_src /etc/apt/sources.list "$CODENM" || { echo ":("; exit 0; }
 
-echo "Instalando scantailor-enhanced en $OSNAME $RELEASN"
+echo "Instalando scantailor-advanced en $OSNAME $RELEASN"
 
 if [[ "$RELEASN" == '18.04' ]] && [ "$OSNAME" == 'Ubuntu' ]
  then
-   # apt-rdepends -b --follow=DEPENDS scantailor
-   SCANTAILOR_DEV_DEP='cmake build-essential libboost-all-dev libjpeg8-dev libtiff5-dev libpng-dev libqt4-dev zlib1g-dev libxrender-dev txt2man xauth xvfb git subversion' 
-   # apt-cache depends scantailor
-   SCANTAILOR_BIN_DEP='libc6 libgcc1 libjpeg8 libqt4-xml libqtcore4 libqtgui4 libstdc++6 libtiff5 libxrender1' # libpng16-16 ? # libjpeg8-dev libjpeg-dev libtiff5-dev libpng12-dev zlib1g-dev libboost-all-dev 
-elif [[ "$RELEASN" == '16.04' ]] && [ "$OSNAME" == 'Ubuntu' ]
- then
-   # apt-rdepends -b --follow=DEPENDS scantailor
-   SCANTAILOR_DEV_DEP='cmake build-essential libboost-all-dev libjpeg8-dev libtiff5-dev libpng12-dev libqt4-dev zlib1g-dev libxrender-dev txt2man xauth xvfb git subversion' 
-   # apt-cache depends scantailor
-   SCANTAILOR_BIN_DEP='libc6 libgcc1 libjpeg8 libpng12-0 libqt4-xml libqtcore4 libqtgui4 libstdc++6 libtiff5 libxrender1' # libjpeg8-dev libjpeg-dev libtiff5-dev libpng12-dev zlib1g-dev libboost-all-dev 
-elif  [ "$RELEASN" == '7.11' ] && [ "$OSNAME" == 'Debian' ]
- then
-   # apt-rdepends -b --follow=DEPENDS scantailor
-   SCANTAILOR_DEV_DEP='cmake build-essential libboost-dev libboost-test-dev libjpeg-dev libpng-dev libqt4-dev libqt4-opengl-dev libtiff-dev libxrender-dev txt2man xauth xvfb git subversion' # checkinstall
-   # apt-cache depends scantailor
-   SCANTAILOR_BIN_DEP='libc6 libgcc1 libjpeg8 libpng12-0 libqt4-xml libqtcore4 libqtgui4 libstdc++6 libtiff5 libxrender1' # libjpeg8-dev libjpeg-dev libtiff5-dev libpng12-dev zlib1g-dev libboost-all-dev 
+   echo ""
+   echo "Descargando cmake 3.12.."
+   cd /opt/src && wget https://cmake.org/files/v3.12/cmake-3.12.4.tar.gz && tar xzvf cmake-3.12.4.tar.gz && cd cmake-3.12.4 || exit 1
+   echo "cmake 3.12 descargado OK"
+   echo "Compilando cmake 3.12 e instalando.."
+   ./bootstrap && make -j4
+   echo "cmake 3.12 compilado OK"
+   echo "Desinstalando version previa de cmake..."
+   sudo apt-get -y remove cmake && sudo apt-get -y purge --auto-remove cmake || exit 1
+   echo "Version previa de cmake desinstalada"
+   echo "instalando cmake 3.12"
+   sudo make install
 
+   # apt-rdepends -b --follow=DEPENDS scantailor
+
+   #SCANTAILOR_REMOVE_DEP='libjpeg-dev libjpeg8-dev libjpeg-turbo8-dev'
+   # debido a este bug en ubuntu 18.04 entran en conflicto (da error el prceso de instalcion con libjpeg9-dev)
+   # sin emvbargo compilo ok con libjpeg8
+   
+   # a artir de la sugerencias para ubuntu de scantailor-advanced
+   SCANTAILOR_DEV_DEP='libboost-all-dev build-essential gcc-7 g++-7 libjpeg-dev libpng-dev libtiff5-dev libboost-test1.65-dev libboost-test1.65.1 qtbase5-dev qttools5-dev qttools5-dev-tools libqt5opengl5-dev libpthread-stubs0-dev'
+   
+   # SCANTAILOR_DEV_DEP=' libtiff5-dev libpng-dev libqt4-dev zlib1g-dev libxrender-dev txt2man xauth xvfb git subversion' 
+   # apt-cache depends scantailor
+   
+   ## esto falta revisar!! probablemente estos paquetes se instalen como dependencias de SCANTAILOR_DEV_DEP
+   SCANTAILOR_BIN_DEP='libc6 libgcc1 libjpeg8 libqt4-xml libqtcore4 libqtgui4 libstdc++6 libtiff5 libxrender1' # libpng16-16 ? # libjpeg8-dev libjpeg-dev libtiff5-dev libpng12-dev zlib1g-dev libboost-all-dev    
 else
   echo "Su sistema operativo '$OSNAME' '$CODENM' '$RELEASN', no esta soportado"
   exit 0
 fi
 
 apt-get update
+
+# echo "Desinstalando dependencias que entran en conflicto"
+# apt-get remove -y $SCANTAILOR_REM_DEP && echo "OK" || { echo "FAIL"; exit 1; }
 
 echo "Instalando dependencias de Scantailor (binario)"
 apt-get install -y $SCANTAILOR_BIN_DEP && echo "OK" || { echo "FAIL"; exit 1; }
@@ -102,28 +121,29 @@ echo "Comprobando directorio para compilación"
 cd /opt/src
 
 echo "Clonando repositorio Scantailor en $SCANTAILOR_SRC_DIR"
-if [[ "$RELEASN" =~ '16.04'|'18.04' ]] && [ "$OSNAME" == 'Ubuntu' ]
+if [[ "$RELEASN" == '18.04' ]] && [ "$OSNAME" == 'Ubuntu' ]
  then
-   git clone -b enhanced https://github.com/d-a-l/scantailor.git $SCANTAILOR_SRC_DIR
-elif  [ "$RELEASN" == '7.11' ] && [ "$OSNAME" == 'Debian' ]
- then
-   git clone -b enhanced https://github.com/scantailor/scantailor.git $SCANTAILOR_SRC_DIR
+   git clone https://github.com/4lex4/scantailor-advanced.git $SCANTAILOR_SRC_DIR
+else
+  echo "Su sistema operativo '$OSNAME' '$CODENM' '$RELEASN', no esta soportado"
+  exit 0   
 fi
 
 if [[ -d "$SCANTAILOR_SRC_DIR" ]]
  then
    cd $SCANTAILOR_SRC_DIR
-   echo "Compilando Scantailor enhanced"
-   cmake . && make
+   echo "Compilando Scantailor advanced"
+   mkdir build && cd build || { echo "FAIL"; exit 1; }
+   cmake -G "Unix Makefiles" --build ..  || { echo "FAIL"; exit 1; }
+   make -j `nproc` || { echo "FAIL"; exit 1; }
    # checkinstall --pkgname scantailor --pkgversion ?? --pkgrelease ??
 else
    echo "no existe '$SCANTAILOR_SRC_DIR'"
 fi
 
-check_scantailor_enh && echo "Scantailor instalado exitosamente en '$SCANTAILOR_SRC_DIR'" || { echo "Falló la instalacion de Scantailor enhanced"; exit 1; } 
+check_scantailor_enh && echo "Scantailor Advanced instalado exitosamente en '$SCANTAILOR_SRC_DIR'" || { echo "Falló la instalacion de Scantailor enhanced"; exit 1; } 
 
-echo "Para ejecutar scantailor-enhanced use:"
-echo " '$SCANTAILOR_SRC_DIR/scantailor-cli' (linea de comandos) ó"
+echo "Para ejecutar scantailor-advanced use:"
 echo " '$SCANTAILOR_SRC_DIR/scantailor' (interfase gráfica)"
 
 exit 0

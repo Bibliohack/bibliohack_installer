@@ -3,7 +3,12 @@
 # verifica que la carpeta exista y se pueda escribir
 # si no puede y no es root, pide permisos y lo intenta como root
 
-OWN_PATH="$PWD/$0"
+OWN_SCRIPT_DIR=$(dirname "$0")
+cd "$OWN_SCRIPT_DIR"
+OWN_DIR="$(pwd -P)"
+OWN_PATH="$OWN_DIR/$0"
+
+
 CURRENT_USER="$USER"
 
 [[ "$1" == "" ]] && SRCDIR=/opt/src || SRCDIR="$1"
@@ -11,9 +16,11 @@ CURRENT_USER="$USER"
 if [ "root" == "$CURRENT_USER" ]; then
    [[ -d "$SRCDIR" ]] || { 
       mkdir "$SRCDIR" || {
-         [[ -d "$(dirname "$SRCDIR")" ]] && \
-            echo "error: no se pudo crear '$SRCDIR' porque no existe " ||\
-            echo "verifique que la carpeta padre exista"
+         if [[ -d "$(dirname "$SRCDIR")" ]]; then
+            >&2 echo "error: no se pudo crear '$SRCDIR'"
+         else
+            >&2 echo "verifique que la carpeta padre exista"
+         fi
          exit 1
       }   
    }
@@ -24,7 +31,7 @@ else
          echo ""
          echo "para crear '$SRCDIR' es necesario hacerse root..."
          echo "(use control+c para cancelar)"
-         su root -c "$OWN_PATH $SRCDIR" || { echo "$OWN_PATH falló"; exit 1;}
+         "$OWN_DIR/run_as_root" "mkdir" "$SRCDIR" || { >&2 echo "No pudo crearse '$SRCDIR'"; exit 1;}
       }
    }
    if touch "$SRCDIR/writable_test" 2>/dev/null; then
@@ -34,12 +41,9 @@ else
       echo ""
       echo "para cambiar los permisos en '$SRCDIR' es necesario hacerse root..."
       echo "(use control+c para cancelar)"
-      su root -c "$OWN_PATH $SRCDIR" || { echo "$OWN_PATH falló"; exit 1;}
-      if touch "$SRCDIR/writable_test" 2>/dev/null; then
-         rm "$SRCDIR/writable_test"
-         exit 0
-      else
-         echo "error: root no pudo modificar '$SRCDIR'"
-      fi
+      "$OWN_DIR/run_as_root" "chmod" "a+rw" "$SRCDIR" || { 
+      	>&2 echo "Error: no se pudieron modificar los permisos en '$SRCDIR'"
+      	exit 1
+      }
    fi
 fi
