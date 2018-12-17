@@ -83,9 +83,9 @@ function install_chdkptp {
 
 	if ! "$OWN_DIR/tools/check_pkgs" $DEPS; then
 	    if [ "root" != "$CURRENT_USER" ]; then
-	        if [ "$ORIG_DPKG_PATH" != "" ]; then
+	        if [ "$ORIG_DPKG_DIR" != "" ]; then
 	    			current_folder="$PWD"
-              	cd "$ORIG_DPKG_PATH"
+              	cd "$ORIG_DPKG_DIR"
   	            "$OWN_DIR/tools/run_as_root" "dpkg -i" *.deb || {
   	                >&2 echo "ERROR al instalar con dpkg"
   	                exit 1
@@ -99,9 +99,9 @@ function install_chdkptp {
 		        }
 	        fi
 	    else
-	    	  if [ "$ORIG_DPKG_PATH" != "" ]; then
+	    	  if [ "$ORIG_DPKG_DIR" != "" ]; then
                current_folder="$PWD"
-           	   cd "$ORIG_DPKG_PATH"
+           	   cd "$ORIG_DPKG_DIR"
                dpkg -i *.deb || {
                    >&2 echo "ERROR al instalar con dpkg"
                    exit 1
@@ -126,9 +126,10 @@ function install_chdkptp {
 		cd "$FILE_WE" || { echo "no existe $FILE_WE! falló la instalación"; exit 1; }
 	elif [ "$ORIG_PATH" != "" ]; then
 	   FILE="${ORIG_PATH##*/}"
-	   FILE_WE=`basename $FILE tar.gz`
-		cp -rp "$ORIG_PATH" "$CHDKPTP_DIR"/ || exit 1
+	   FILE_WE=`basename $FILE .tar.gz`
 		cd "$CHDKPTP_DIR" || exit 1
+		cd ../
+		cp -rp "$ORIG_PATH" . || exit 1
 		tar xzvf "$FILE"
 		cd "$FILE_WE" || { echo "no existe $FILE_WE! falló la instalación"; exit 1; }	
 	else
@@ -140,13 +141,14 @@ function install_chdkptp {
 		fi
 	fi
 	config_file=`get_config_file`
-	echo "$config_file" > config.mk
+   echo "$config_file"
+	echo "$config_file" > config.mk || exit 1
 	make && return 0 || return 1
 }
 
 function get_config_file {
-  IUP_LIB_DIR=`$TECGRAF_COMMAND print_path=iup tecdir_path=$TECGRAF_PATH`
-  CD_LIB_DIR=`$TECGRAF_COMMAND print_path=cd tecdir_path=$TECGRAF_PATH`
+  IUP_LIB_DIR=`$TECGRAF_COMMAND print_path=iup tecgraf_dir=$TECGRAF_DIR`
+  CD_LIB_DIR=`$TECGRAF_COMMAND print_path=cd tecgraf_dir=$TECGRAF_DIR`
   if [[ "$IUP_LIB_DIR" == "" ]] || [[ "$CD_LIB_DIR" == "" ]]; then exit 1; fi
   config_file_d="
 IUP_SUPPORT=1
@@ -261,12 +263,12 @@ TECGRAF_COMMAND="$PWD/tecgraf"
 
 SRCDIR=/opt/src
 CHDKPTP_DIR=$SRCDIR/chdkptp
-TECGRAF_PATH=$SRCDIR/tecgraf
+TECGRAF_DIR=$SRCDIR/tecgraf
 
 PROFILE_OPTION=''
 ACTION=''
 
-ORIG_DPKG_PATH=""
+ORIG_DPKG_DIR=""
 
 if [ "$1" == "" ]; then
    ACTION="install"
@@ -278,17 +280,17 @@ else
 		   profile=*)
 		   	PROFILE_OPTION="${arg#*=}"
 		   ;;
-		   tecgraf_path=*)
-		   	ALT_TECGRAF_PATH="${arg#*=}"
+		   tecgraf_dir=*)
+		   	ALT_TECGRAF_DIR="${arg#*=}"
 		   ;;
-		   chdkptp_path=*)
+		   chdkptp_dir=*)
 		   	ALT_CHDKPTP_DIR="${arg#*=}"
 		   ;;
 		   orig_path=*)
 		   	ORIG_PATH="${arg#*=}"
 		   ;;
-		   orig_dpkg_path=*)
-		   	ORIG_DPKG_PATH="${arg#*=}"
+		   orig_dpkg_dir=*)
+		   	ORIG_DPKG_DIR="${arg#*=}"
 		   ;;
 		   orig_url=*)
 		   	ORIG_URL="${arg#*=}"
@@ -310,10 +312,10 @@ else
 	done
 fi
 
-if [ "$ALT_TECGRAF_PATH" != "" ]; then
-	echo "Comprobando '$ALT_TECGRAF_PATH'"
-	[[ -d "$ALT_TECGRAF_PATH" ]] || { echo "'$ALT_TECGRAF_PATH' no existe"; exit 1; }
-	TECGRAF_PATH="$ALT_TECGRAF_PATH"
+if [ "$ALT_TECGRAF_DIR" != "" ]; then
+	echo "Comprobando '$ALT_TECGRAF_DIR'"
+	[[ -d "$ALT_TECGRAF_DIR" ]] || { echo "'$ALT_TECGRAF_DIR' no existe"; exit 1; }
+	TECGRAF_DIR="$ALT_TECGRAF_DIR"
 fi
 
 if [ "$ALT_CHDKPTP_DIR" != "" ]; then
@@ -332,12 +334,12 @@ fi
 
 if [ "$ORIG_PATH" != "" ]; then
 	echo "Comprobando '$ORIG_PATH'"
-	[[ -d "$ORIG_PATH" ]] || { echo "'$ORIG_PATH' no existe"; exit 1; }
+	[[ -f "$ORIG_PATH" ]] || { echo "'$ORIG_PATH' no existe"; exit 1; }
 fi
 
-if [ "$ORIG_DPKG_PATH" != "" ]; then
-	echo "Comprobando $ORIG_DPKG_PATH"
-	[[ -d "$ORIG_DPKG_PATH" ]] || { echo "'$ORIG_DPKG_PATH' no existe"; exit 1; }
+if [ "$ORIG_DPKG_DIR" != "" ]; then
+	echo "Comprobando $ORIG_DPKG_DIR"
+	[[ -d "$ORIG_DPKG_DIR" ]] || { echo "'$ORIG_DPKG_DIR' no existe"; exit 1; }
 fi
 
 

@@ -12,16 +12,16 @@ Uso:
                                    -> Imprime versión iup|cd|im instalada para
                                       la version de lua indicada (51 por defecto)
 
-    tecgraf print_path=iup|cd|im [tecdir_path=<path>]
+    tecgraf print_path=iup|cd|im [tecgraf_dir=<path>]
                                    -> Imprime la ruta a iup|cd|im para chdkptp.
 
-    tecgraf install [profile=d|u] [tecdir_path=<path>] 
-                    [orig_url=<url>|orig_path=<path>] [orig_dpkg_path=<path>]
+    tecgraf install [profile=d|u] [tecgraf_dir=<path>] 
+                    [orig_url=<url>|orig_dir=<path>] [orig_dpkg_dir=<path>]
                                    -> instala iup,cd,im profile de forma
                                       no interactiva
                                       orig_url -> url alternativa con binarios tecgraf
-                                      orig_path -> ruta local a carpeta con binarios tecgraf
-                                      orig_dpkg_path -> ruta local a paquetes para dpkg
+                                      orig_dir -> ruta local a carpeta con binarios tecgraf
+                                      orig_dpkg_dir -> ruta local a paquetes para dpkg
     
 "
 # chequeado en Ubuntu 16.04 OK perfil 'd', no instala LUA 5.2
@@ -155,7 +155,7 @@ function install_libs {
     for tar in $IUP_TAR $CD_TAR $IM_TAR
     do
         dest=`basename $tar .$TAR_EXT`
-        items+=("$TECDIR/$dest;install install_dev;")
+        items+=("$TECGRAF_DIR/$dest;install install_dev;")
     done
 
     for lua_ver in "${lua_vers[@]}"; do
@@ -165,10 +165,10 @@ function install_libs {
            then
               tar=$( eval echo \$${lib}LUA${lua_ver}_TAR )
               dest=`basename $tar .$TAR_EXT`
-              items+=("$TECDIR/$dest;install install_dev config_lua_module;$lua_ver")
+              items+=("$TECGRAF_DIR/$dest;install install_dev config_lua_module;$lua_ver")
           else
               dest=$( eval echo \$${lib}LUA_FOLDER )
-              items+=("$TECDIR/$dest;config_lua_module;$lua_ver")
+              items+=("$TECGRAF_DIR/$dest;config_lua_module;$lua_ver")
           fi
       done
     done
@@ -277,7 +277,7 @@ function get_installed_libs {
 
 function list_available_folders {
   current_folder="$PWD"
-  cd "$TECDIR"
+  cd "$TECGRAF_DIR"
   echo "Instalaciones tecgraf disponibles en '$TECDIR'"
   echo ""
   ls -1d */
@@ -322,9 +322,9 @@ function uninstall_tecgraf {
                $IMLUA51_TAR $IMLUA52_TAR
     do
         dest=`basename $tar .$TAR_EXT`
-        [[ -d "$TECDIR/$dest" ]] && {
-            items+=("$TECDIR/$dest;uninstall;")
-        } || echo "'$TECDIR/$dest' no existe, no se puede desinstalar"
+        [[ -d "$TECGRAF_DIR/$dest" ]] && {
+            items+=("$TECGRAF_DIR/$dest;uninstall;")
+        } || echo "'$TECGRAF_DIR/$dest' no existe, no se puede desinstalar"
     done
 
     if [ "root" != "$CURRENT_USER" ]
@@ -349,8 +349,8 @@ function uninstall_tecgraf {
 
 function install_tecgraf {
     echo "Verificando directorio para instalación"
-    "$OWN_DIR/tools/check_src_dir" "$TECDIR" && echo "OK" || {
-        >&2 echo "ERROR: no se pudo crear o modificar '$TECDIR'"
+    "$OWN_DIR/tools/check_src_dir" "$TECGRAF_DIR" && echo "OK" || {
+        >&2 echo "ERROR: no se pudo crear o modificar '$TECGRAF_DIR'"
         exit 1
     }
 
@@ -358,9 +358,9 @@ function install_tecgraf {
         if [ "root" != "$CURRENT_USER" ]; then
             echo "para instalar paquetes con apt-get es necesario hacerse root..."
             # todo check if deb-src enabled
-            if [ "$ORIG_DPKG_PATH" != "" ]; then
+            if [ "$ORIG_DPKG_DIR" != "" ]; then
                current_folder="$PWD"
-            	cd "$ORIG_DPKG_PATH"
+            	cd "$ORIG_DPKG_DIR"
 	            "$OWN_DIR/tools/run_as_root" "dpkg -i" *.deb || {
 	                >&2 echo "ERROR al instalar con dpkg"
 	                exit 1
@@ -373,9 +373,9 @@ function install_tecgraf {
 	            }
             fi
         else
-            if [ "$ORIG_DPKG_PATH" != "" ]; then
+            if [ "$ORIG_DPKG_DIR" != "" ]; then
                 current_folder="$PWD"
-            	cd "$ORIG_DPKG_PATH"
+            	cd "$ORIG_DPKG_DIR"
 	            dpkg -i *.deb || {
 	                >&2 echo "ERROR al instalar con dpkg"
 	                exit 1
@@ -395,9 +395,9 @@ function install_tecgraf {
                $IM_TAR  $IMLUA51_TAR  $IMLUA52_TAR
     do
         dest=`basename $tar .$TAR_EXT`
-        if [ "$ORIG_PATH" != "" ]; then
-           echo -e "\ncopiando '$tar' desde '$ORIG_PATH' para instalar en '$dest'\n"
-          "$OWN_DIR/tools/tecgraf/copy_and_untar" $tar "$ORIG_PATH" "$TECDIR" "$dest" || exit 1
+        if [ "$ORIG_DIR" != "" ]; then
+           echo -e "\ncopiando '$tar' desde '$ORIG_DIR' para instalar en '$dest'\n"
+          "$OWN_DIR/tools/tecgraf/copy_and_untar" $tar "$ORIG_DIR" "$TECGRAF_DIR" "$dest" || exit 1
         else
            echo -e "\ndescargando '$tar' para instalar en '$dest'\n"
            if [ "$SOURCEFORGE" == "Yes" ]
@@ -407,7 +407,7 @@ function install_tecgraf {
              URL="$ALT_URL"
            fi
            if [[ ! "$URL" ]]; then >&2 echo "ERROR: falló URL = '$URL'"; exit 1; fi
-           "$OWN_DIR/tools/tecgraf/download_and_untar" $tar $URL "$TECDIR" "$dest" || exit 1
+           "$OWN_DIR/tools/tecgraf/download_and_untar" $tar $URL "$TECGRAF_DIR" "$dest" || exit 1
         fi
     done
 
@@ -478,10 +478,10 @@ function print_version {
 
 function print_path {
   [[ "$1" =~ ^(iup|im|cd)$ ]] && lib="$1" || { >&2 echo "ERROR: debug: print_path: valor no admitido: '$1'"; return 1; }
-  [[ -d "${TECDIR}" ]] || { >&2 echo "ERROR! no existe '$TECDIR'"; return 1; }
+  [[ -d "${TECGRAF_DIR}" ]] || { >&2 echo "ERROR! no existe '$TECGRAF_DIR'"; return 1; }
 
   VER=`print_version "${lib}"`
-  lib_path="${TECDIR}/${lib}-${VER}_${KERNEL}${TYPE}_lib"
+  lib_path="${TECGRAF_DIR}/${lib}-${VER}_${KERNEL}${TYPE}_lib"
   [[ -d "${lib_path}" ]] && {
     echo "${lib_path}"
     return 0
@@ -515,10 +515,10 @@ CURRENT_USER="$USER"
 QUIET=""
 
 SRCDIR=/opt/src
-TECDIR=$SRCDIR/tecgraf
+TECGRAF_DIR=$SRCDIR/tecgraf
 PROFILE_OPT=''
 ACTION=''
-ORIG_PATH=''
+ORIG_DIR=''
 
 if [ "$1" == "" ]; then
    ACTION="install"
@@ -527,8 +527,8 @@ else
    do
       arg="$1"
       case "$arg" in
-          tecdir_path=*)
-              TECDIR_ALT="${arg#*=}"
+          tecgraf_dir=*)
+              ALT_TECGRAF_DIR="${arg#*=}"
           ;;
           profile=*)
               PROFILE_OPT="${arg#*=}"
@@ -536,11 +536,11 @@ else
           orig_url=*)
               ALT_URL="${arg#*=}"
           ;;
-          orig_path=*)
-              ORIG_PATH="${arg#*=}"
+          orig_dir=*)
+              ORIG_DIR="${arg#*=}"
           ;;
-          orig_dpkg_path=*)
-              ORIG_DPKG_PATH="${arg#*=}"
+          orig_dpkg_dir=*)
+              ORIG_DPKG_DIR="${arg#*=}"
           ;;
           uninstall)
               ACTION="uninstall"
@@ -580,11 +580,11 @@ else
    done
 fi
 
-if [ "$TECDIR_ALT" != "" ]; then
-	echoo "Comprobando '$TECDIR_ALT'"
-	[[ -d "$TECDIR_ALT" ]] || { echoo "'$TECDIR_ALT' no existe"; exit 1; }
-	[[ -w "$TECDIR_ALT" ]] || { echoo "'$TECDIR_ALT' permisos insuficientes"; exit 1; }
-	TECDIR="$TECDIR_ALT"
+if [ "$ALT_TECGRAF_DIR" != "" ]; then
+	echoo "Comprobando '$ALT_TECGRAF_DIR'"
+	[[ -d "$ALT_TECGRAF_DIR" ]] || { echoo "'$ALT_TECGRAF_DIR' no existe"; exit 1; }
+	[[ -w "$ALT_TECGRAF_DIR" ]] || { echoo "'$ALT_TECGRAF_DIR' permisos insuficientes"; exit 1; }
+	TECGRAF_DIR="$ALT_TECGRAF_DIR"
 else
    if [ "$QUIET" == "" ]; then #check_src_dir is not quiet script
 		echo "Verificando directorio /opt/src"
@@ -595,14 +595,14 @@ else
 	fi
 fi
 
-if [ "$ORIG_PATH" != "" ]; then
-	echoo "Comprobando '$ORIG_PATH'"
-	[[ -d "$ORIG_PATH" ]] || { echoo "'$ORIG_PATH' no existe"; exit 1; }
+if [ "$ORIG_DIR" != "" ]; then
+	echoo "Comprobando '$ORIG_DIR'"
+	[[ -d "$ORIG_DIR" ]] || { echoo "'$ORIG_DIR' no existe"; exit 1; }
 fi
 
-if [ "$ORIG_DPKG_PATH" != "" ]; then
-	echoo "Comprobando $ORIG_DPKG_PATH"
-	[[ -d "$ORIG_DPKG_PATH" ]] || { echoo "'$ORIG_DPKG_PATH' no existe"; exit 1; }
+if [ "$ORIG_DPKG_DIR" != "" ]; then
+	echoo "Comprobando $ORIG_DPKG_DIR"
+	[[ -d "$ORIG_DPKG_DIR" ]] || { echoo "'$ORIG_DPKG_DIR' no existe"; exit 1; }
 fi
 
 case "$ACTION" in

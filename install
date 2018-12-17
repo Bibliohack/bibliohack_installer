@@ -1,0 +1,98 @@
+#TODO: en el usb no se pueden dar permiso de ejecucion a los scripts, 
+#      por lo tanto instaladores no funciona!
+#      install debera copiar un tar.gz de instaladores desde MULTISYSTEM a /opt/bibliohack_install/
+#      y ejecutar otro install ahi, pasamdole como parametro la localizacion de BIBLIOHACK_INSTALL_DIR
+
+OWN_SCRIPT_DIR=$(dirname "$0")
+cd "$OWN_SCRIPT_DIR"
+INSTALADORES_DIR="$(pwd -P)"
+INSTALADORES_PATH="$OWN_DIR/$0"
+
+cd "$INSTALADORES_DIR"
+
+BIBLIOHACK_INSTALL_DIR="/media/bibliohack/MULTISYSTEM/bibliohack_install"
+
+[[ -d "/opt/bibliohack" ]] || {
+	sudo mkdir /opt/bibliohack || exit 1
+	sudo chmod a+rw /opt/bibliohack || exit 1
+}
+
+RESOURCES="/opt/bibliohack/resources"
+COMPONENTS="/opt/bibliohack/components"
+
+[[ -d "$RESOURCES" ]] || {
+	mkdir "$RESOURCES" || exit 1
+}
+[[ -d "$COMPONENTS" ]] || {
+	mkdir "$COMPONENTS" || exit 1
+}
+
+# --------------------------------------------------------
+# desktop
+
+# faltaron: python sgml-base
+# quedaronm sin instalar: python_2.7.15~rc1-1_amd64.deb alacarte metacity-common python-gi libmetacity1:amd64 metacity gnome-session-flashback
+# luego de: sudo apt --fix-broken install, instal: python sgml-base
+
+# agregar tango-icon-theme
+
+# --------------------------------------------------------
+# build essential
+
+BUILD_ESSENTIAL="INSTALLED"
+
+if [ "$BUILD_ESSENTIAL" != "INSTALLED" ]; then
+	current_folder="$PWD"
+	cd "$BIBLIOHACK_INSTALL_DIR/deb/build-essential"
+	"$INSTALADORES_DIR/tools/run_as_root" "dpkg -i" *.deb || {
+		>&2 echo "ERROR al instalar con dpkg"
+		exit 1
+	}
+	cd "$current_folder"
+fi
+
+# --------------------------------------------------------
+# tecgraf
+
+TECGRAF="INSTALLED"
+
+if [ "$TECGRAF" != "INSTALLED" ]; then
+	TECGRAF_DIR="$RESOURCES/tecgraf"
+	[[ -d "$TECGRAF_DIR" ]] || {
+		mkdir "$TECGRAF_DIR" || exit 1
+	}
+	$INSTALADORES_DIR/tecgraf install profile=d tecgraf_dir="$TECGRAF_DIR" orig_dpkg_dir="$BIBLIOHACK_INSTALL_DIR/deb/tecgraf" orig_dir="$BIBLIOHACK_INSTALL_DIR/tecgraf" || exit 1
+fi
+
+# --------------------------------------------------------
+# chdkptp
+
+#CHDKPTP="INSTALLED"
+
+# Se encontraron errores al procesar:
+# python3_3.6.7-1~18.04_amd64.deb
+# python3-minimal_3.6.7-1~18.04_amd64.deb
+# python3-distutils
+# python3-lib2to3
+# libglib2.0-dev-bin
+# libglib2.0-dev:amd64
+# libcairo2-dev:amd64
+
+# dpkg: acerca de python3_3.6.7-1~18.04_amd64.deb que contiene python3, problema de predependencia:
+# python3 predepende de python3-minimal (= 3.6.7-1~18.04)
+#  python3-minimal está instalado, pero tiene versión 3.6.5-3ubuntu1.
+# TODO descargar los paquetes compatibles con 3.6.5-3!!
+
+
+
+if [ "$CHDKPTP" != "INSTALLED" ]; then
+	CHDKPTP_DIR="$RESOURCES/chdkptp-461"
+	[[ -d "$CHDKPTP_DIR" ]] || {
+		mkdir "$CHDKPTP_DIR" || exit 1
+	}
+
+	$INSTALADORES_DIR/chdkptp install profile=d tecgraf_dir="$TECGRAF_DIR" chdkptp_dir="$CHDKPTP_DIR" orig_dpkg_dir="$BIBLIOHACK_INSTALL_DIR/deb/chdkptp" orig_path="$BIBLIOHACK_INSTALL_DIR/src/chdkptp-461.tar.gz" || exit 1
+fi
+
+exit 0
+
