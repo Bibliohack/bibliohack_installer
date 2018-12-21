@@ -25,9 +25,10 @@ BIBLIOHACK_DIR=/opt/bibliohack
 sudo chmod a+rw "$BIBLIOHACK_DIR" || exit 1
 
 if [[ -f "$BIBLIOHACK_ORIG/instaladores.tar.gz" ]]; then
-	cp "$BIBLIOHACK_ORIG/instaladores.tar.gz" /opt/
-	tar xzvf /opt/instaladores.tar.gz
-	[[ -d "/opt/instaladores" ]] || exit 1
+	cp "$BIBLIOHACK_ORIG/instaladores.tar.gz" "$BIBLIOHACK_DIR/" || exit 1
+	cd "$BIBLIOHACK_DIR"
+	tar xzvf instaladores.tar.gz
+	[[ -d "/$BIBLIOHACK_DIR/instaladores" ]] || { echo "error"; exit 1; }
 else
    echo "no existe instaladores.tar.gz en el directorio de instalación '$BIBLIOHACK_ORIG'"
 	exit 1
