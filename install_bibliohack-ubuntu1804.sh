@@ -1,11 +1,11 @@
 #!/bin/bash
 
-function error_msg() {
+error_msg() {
 	echo "$1"
 	exit 1
 }
 
-function pdfbeads_check() {
+pdfbeads_check() {
 	check=$( $PDFBEADS_DIR/bin/pdfbeads -h | head -n 1 )
 	if [ "$check" == "Usage: pdfbeads [options] [files to process] > out.pdf" ]
 	 then
@@ -15,7 +15,7 @@ function pdfbeads_check() {
 	fi
 }
 
-function chdkptp_check() {
+chdkptp_check() {
 	if "$INSTALADORES_DIR/chdkptp" "test" chdkptp_dir="$CHDKPTP_DIR"; then
 	  return 0
 	else
@@ -23,6 +23,19 @@ function chdkptp_check() {
 	fi
 }
 
+tecgraf_check() {
+	iup_ver=$("$INSTALADORES_DIR/tecgraf" print_ver=iup tecgraf_dir="$TECGRAF_DIR")
+	cd_ver=$("$INSTALADORES_DIR/tecgraf" print_ver=cd tecgraf_dir="$TECGRAF_DIR")
+   if [ "$iup_ver" == "" ] || [ "$cd_ver" == "" ]; then
+	  return 1
+	elif [ "$iup_ver" == "3.8" ] && [ "$cd_ver" == "5.6.1" ]; then
+	  return 0
+   else
+     echo "tecgraf: versiones no compatibles iup_ver=$iup_ver (3.8) cd_ver=$cd_ver (5.6.1)"
+     echo "debe desinstalarlas manualmente antes de usar este instalador"
+     exit 1
+	fi
+}
 
 OSNAME=`lsb_release -is`
 CODENM=`lsb_release -cs`
@@ -51,6 +64,7 @@ BIBLIOHACK_ORIG_SRCDIR="$BIBLIOHACK_ORIG/src"
 
 PDFBEADS_DIR="$COMPONENTS/pdfbeads-kopi" # esta carpeta se crea via tar!
 CHDKPTP_DIR="$RESOURCES/chdkptp-461"
+TECGRAF_DIR="$RESOURCES/tecgraf"
 
 [[ -d "$BIBLIOHACK_DIR" ]] || {
 	sudo mkdir "$BIBLIOHACK_DIR" || exit 1
@@ -84,7 +98,7 @@ BUILD_ESSENTIAL="INSTALLED"
 if [ "$BUILD_ESSENTIAL" != "INSTALLED" ]; then
 	current_folder="$PWD"
 	cd "$BIBLIOHACK_ORIG/deb/build-essential"
-	"$INSTALADORES_DIR/tools/run_as_root" "dpkg -i" *.deb || {
+	"$INSTALADORES_DIR/tools/run_as_root" "dpkg -iEG" *.deb || {
 		>&2 echo "ERROR al instalar con dpkg"
 		exit 1
 	}
@@ -94,10 +108,7 @@ fi
 # --------------------------------------------------------
 echo "instalando tecgraf"
 
-TECGRAF="INSTALLED"
-TECGRAF_DIR="$RESOURCES/tecgraf"
-
-if [ "$TECGRAF" != "INSTALLED" ]; then
+if ! tecgraf_check; then
 	[[ -d "$TECGRAF_DIR" ]] || {
 		mkdir "$TECGRAF_DIR" || exit 1
 	}
@@ -144,7 +155,7 @@ if ! pdfbeads_check; then
 	cd "$PDFBEADS_ORIG_DPKG_DIR" || exit 1
 	sudo dpkg -iEG *.deb || exit 1
 
-        verify_iconv=$(gem list -i iconv)
+   verify_iconv=$(gem list -i iconv)
 	if [ "$verify_iconv" == "false" ]; then
 		echo "instalando iconv"
 		cp "$GEMS_ORIG/iconv_ubuntu_bionic-x86_64-rubygem.tar.gz" "$TMPDIR/" || exit 1
@@ -154,7 +165,7 @@ if ! pdfbeads_check; then
 
 		sudo gem install --force --local *.gem || exit 1
 		verify_iconv=$(gem list -i iconv)
-		[[ "$verify_iconv" == "false" ]] || error_msg "error: no se pudo instalar iconv"
+		[[ "$verify_iconv" == "false" ]] && error_msg "error: no se pudo instalar iconv"
 	else
 		if [ "$verify_iconv" == "true" ]; then
 			echo "iconv ya instalado"

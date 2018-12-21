@@ -338,7 +338,7 @@ fi
 
 if [ "$ALT_CHDKPTP_DIR" != "" ]; then
 	eecho "Comprobando '$ALT_CHDKPTP_DIR'"
-	[[ -d "$ALT_CHDKPTP_DIR" ]] || { echo "'$ALT_CHDKPTP_DIR' no existe"; exit 1; }
+	[[ -d "$ALT_CHDKPTP_DIR" ]] || >&2 echo "atención '$ALT_CHDKPTP_DIR' no creado"
 	CHDKPTP_DIR="$ALT_CHDKPTP_DIR"
 fi
 
