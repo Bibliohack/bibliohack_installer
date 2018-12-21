@@ -33,7 +33,7 @@ Uso:
 # TODO: debian probar si funciona o no run_as_root
 # TODO: ubuntu 16.04 profile=u OK
 
-function echoo() {
+function eecho() {
 	if [ "$QUIET" == "" ]; then
 		echo "$1"
    fi
@@ -361,7 +361,7 @@ function install_tecgraf {
             if [ "$ORIG_DPKG_DIR" != "" ]; then
                current_folder="$PWD"
             	cd "$ORIG_DPKG_DIR"
-	            "$OWN_DIR/tools/run_as_root" "dpkg -i" *.deb || {
+	            "$OWN_DIR/tools/run_as_root" "dpkg -iEG" *.deb || {
 	                >&2 echo "ERROR al instalar con dpkg"
 	                exit 1
 	            }
@@ -376,7 +376,7 @@ function install_tecgraf {
             if [ "$ORIG_DPKG_DIR" != "" ]; then
                 current_folder="$PWD"
             	cd "$ORIG_DPKG_DIR"
-	            dpkg -i *.deb || {
+	            dpkg -iEG *.deb || {
 	                >&2 echo "ERROR al instalar con dpkg"
 	                exit 1
 	            }
@@ -581,9 +581,9 @@ else
 fi
 
 if [ "$ALT_TECGRAF_DIR" != "" ]; then
-	echoo "Comprobando '$ALT_TECGRAF_DIR'"
-	[[ -d "$ALT_TECGRAF_DIR" ]] || { echoo "'$ALT_TECGRAF_DIR' no existe"; exit 1; }
-	[[ -w "$ALT_TECGRAF_DIR" ]] || { echoo "'$ALT_TECGRAF_DIR' permisos insuficientes"; exit 1; }
+	eecho "Comprobando '$ALT_TECGRAF_DIR'"
+	[[ -d "$ALT_TECGRAF_DIR" ]] || { eecho "'$ALT_TECGRAF_DIR' no existe"; exit 1; }
+	[[ -w "$ALT_TECGRAF_DIR" ]] || { eecho "'$ALT_TECGRAF_DIR' permisos insuficientes"; exit 1; }
 	TECGRAF_DIR="$ALT_TECGRAF_DIR"
 else
    if [ "$QUIET" == "" ]; then #check_src_dir is not quiet script
@@ -596,13 +596,13 @@ else
 fi
 
 if [ "$ORIG_DIR" != "" ]; then
-	echoo "Comprobando '$ORIG_DIR'"
-	[[ -d "$ORIG_DIR" ]] || { echoo "'$ORIG_DIR' no existe"; exit 1; }
+	eecho "Comprobando '$ORIG_DIR'"
+	[[ -d "$ORIG_DIR" ]] || { eecho "'$ORIG_DIR' no existe"; exit 1; }
 fi
 
 if [ "$ORIG_DPKG_DIR" != "" ]; then
-	echoo "Comprobando $ORIG_DPKG_DIR"
-	[[ -d "$ORIG_DPKG_DIR" ]] || { echoo "'$ORIG_DPKG_DIR' no existe"; exit 1; }
+	eecho "Comprobando $ORIG_DPKG_DIR"
+	[[ -d "$ORIG_DPKG_DIR" ]] || { eecho "'$ORIG_DPKG_DIR' no existe"; exit 1; }
 fi
 
 case "$ACTION" in

@@ -5,6 +5,12 @@
 
 # ./chdkptp install|uninstall profile=d|u || echo "fail"
 
+function eecho() {
+	if [ "$QUIET" == "" ]; then
+		echo "$1"
+   fi
+}
+
 function set_chdkptp_profile {
 
     if [[ "$1" =~ "d"|"u" ]]
@@ -74,82 +80,10 @@ function set_packages_param {
     }
 }
 
-function install_chdkptp {
-	echo "Verificando directorio para instalación"
-	"$OWN_DIR/tools/check_src_dir" "$CHDKPTP_DIR" && echo "OK" || {
-	    >&2 echo "ERROR: no se pudo crear o modificar '$CHDKPTP_DIR'"
-	    exit 1
-	}
-
-	if ! "$OWN_DIR/tools/check_pkgs" $DEPS; then
-	    if [ "root" != "$CURRENT_USER" ]; then
-	        if [ "$ORIG_DPKG_DIR" != "" ]; then
-	    			current_folder="$PWD"
-              	cd "$ORIG_DPKG_DIR"
-  	            "$OWN_DIR/tools/run_as_root" "dpkg -i" *.deb || {
-  	                >&2 echo "ERROR al instalar con dpkg"
-  	                exit 1
-  	            }
-  	            cd "$current_folder"
-	        else
-		        echo "para instalar paquetes con apt-get es necesario hacerse root..."
-		        "$OWN_DIR/tools/run_as_root" "apt-get install" "$DEPS" || {
-		            >&2 echo "ERROR al instalar con apt-get"
-		            exit 1
-		        }
-	        fi
-	    else
-	    	  if [ "$ORIG_DPKG_DIR" != "" ]; then
-               current_folder="$PWD"
-           	   cd "$ORIG_DPKG_DIR"
-               dpkg -i *.deb || {
-                   >&2 echo "ERROR al instalar con dpkg"
-                   exit 1
-               }
-               cd "$current_folder"
-           else
-		        apt-get install $DEPS || {
-		            >&2 echo "ERROR al instalar con apt-get"
-		            exit 1
-		        }
-		     fi
-	    fi
-	fi
-	
-	
-	if [ "$ORIG_URL" != "" ]; then
-	   FILE="${ORIG_URL##*/}"
-	   FILE_WE=`basename $FILE tar.gz`
-		wget -N "$ORIG_URL" -P "$CHDKPTP_DIR" || exit 1
-		cd "$CHDKPTP_DIR" || exit 1
-		tar xzvf "$FILE"
-		cd "$FILE_WE" || { echo "no existe $FILE_WE! falló la instalación"; exit 1; }
-	elif [ "$ORIG_PATH" != "" ]; then
-	   FILE="${ORIG_PATH##*/}"
-	   FILE_WE=`basename $FILE .tar.gz`
-		cd "$CHDKPTP_DIR" || exit 1
-		cd ../
-		cp -rp "$ORIG_PATH" . || exit 1
-		tar xzvf "$FILE"
-		cd "$FILE_WE" || { echo "no existe $FILE_WE! falló la instalación"; exit 1; }	
-	else
-		svn co http://subversion.assembla.com/svn/chdkptp/trunk "$CHDKPTP_DIR"
-		cd "$CHDKPTP_DIR"
-		if [ "${CHDKPTP_VER}" != "" ]; then
-			echo "revirtiendo a la versión '${CHDKPTP_VER}'..."
-			svn up -r${CHDKPTP_VER} || exit 1
-		fi
-	fi
-	config_file=`get_config_file`
-   echo "$config_file"
-	echo "$config_file" > config.mk || exit 1
-	make && return 0 || return 1
-}
-
 function get_config_file {
   IUP_LIB_DIR=`$TECGRAF_COMMAND print_path=iup tecgraf_dir=$TECGRAF_DIR`
   CD_LIB_DIR=`$TECGRAF_COMMAND print_path=cd tecgraf_dir=$TECGRAF_DIR`
-  if [[ "$IUP_LIB_DIR" == "" ]] || [[ "$CD_LIB_DIR" == "" ]]; then exit 1; fi
+  if [ "$IUP_LIB_DIR" == "" ] || [ "$CD_LIB_DIR" == "" ]; then return 1; fi
   config_file_d="
 IUP_SUPPORT=1
 CD_SUPPORT=1
@@ -196,11 +130,93 @@ else
 fi
 }
 
+function install_chdkptp {
+	echo "Verificando directorio para instalación"
+	"$OWN_DIR/tools/check_src_dir" "$CHDKPTP_DIR" && echo "OK" || {
+	    >&2 echo "ERROR: no se pudo crear o modificar '$CHDKPTP_DIR'"
+	    exit 1
+	}
+
+	if ! "$OWN_DIR/tools/check_pkgs" $DEPS; then
+	    if [ "root" != "$CURRENT_USER" ]; then
+	        if [ "$ORIG_DPKG_DIR" != "" ]; then
+	    			current_folder="$PWD"
+              	cd "$ORIG_DPKG_DIR"
+  	            "$OWN_DIR/tools/run_as_root" "dpkg -iEG" *.deb || {
+  	                >&2 echo "ERROR al instalar con dpkg"
+  	                exit 1
+  	            }
+  	            cd "$current_folder"
+	        else
+		        echo "para instalar paquetes con apt-get es necesario hacerse root..."
+		        "$OWN_DIR/tools/run_as_root" "apt-get install" "$DEPS" || {
+		            >&2 echo "ERROR al instalar con apt-get"
+		            exit 1
+		        }
+	        fi
+	    else
+	    	  if [ "$ORIG_DPKG_DIR" != "" ]; then
+               current_folder="$PWD"
+           	   cd "$ORIG_DPKG_DIR"
+               dpkg -iEG *.deb || {
+                   >&2 echo "ERROR al instalar con dpkg"
+                   exit 1
+               }
+               cd "$current_folder"
+           else
+		        apt-get install $DEPS || {
+		            >&2 echo "ERROR al instalar con apt-get"
+		            exit 1
+		        }
+		     fi
+	    fi
+	fi
+	
+	
+	if [ "$ORIG_URL" != "" ]; then
+	   FILE="${ORIG_URL##*/}"
+	   FILE_WE=`basename $FILE tar.gz`
+		wget -N "$ORIG_URL" -P "$CHDKPTP_DIR" || exit 1
+		cd "$CHDKPTP_DIR" || exit 1
+		tar xzvf "$FILE"
+		cd "$FILE_WE" || { echo "no existe $FILE_WE! falló la instalación"; exit 1; }
+	elif [ "$ORIG_PATH" != "" ]; then
+	   FILE="${ORIG_PATH##*/}"
+	   FILE_WE=`basename $FILE .tar.gz`
+		cd "$CHDKPTP_DIR" || exit 1
+		cd ../
+		cp -rp "$ORIG_PATH" . || exit 1
+		tar xzvf "$FILE"
+		cd "$FILE_WE" || { echo "no existe $FILE_WE! falló la instalación"; exit 1; }	
+	else
+		svn co http://subversion.assembla.com/svn/chdkptp/trunk "$CHDKPTP_DIR"
+		cd "$CHDKPTP_DIR"
+		if [ "${CHDKPTP_VER}" != "" ]; then
+			echo "revirtiendo a la versión '${CHDKPTP_VER}'..."
+			svn up -r${CHDKPTP_VER} || exit 1
+		fi
+	fi
+	config_file=`get_config_file`
+	if [ "$config_file" != "" ]; then
+		echo "$config_file"
+		echo "$config_file" > config.mk || exit 1
+		make && return 0 || return 1
+	else
+		echo "error: config_file='$config_file'"
+		exit 1
+	fi
+}
+
 function test_chdkptp {
-  cd "$CHDKPTP_DIR"
-  [[ -f ./chdkptp ]] || return 1
-  export LUA_PATH="./lua/?.lua"
-  chdkptp_out=$( ./chdkptp -h | head -n 1 )
+  current_folder="$PWD"
+  if [[ -d "$CHDKPTP_DIR" ]]; then
+	cd "$CHDKPTP_DIR"
+	[[ -f ./chdkptp ]] || return 1
+	export LUA_PATH="./lua/?.lua"
+ 	chdkptp_out=$( ./chdkptp -h | head -n 1 )
+  	cd $current_folder
+  fi
+
   if [ "$chdkptp_out" == "CHDK PTP control utility" ]; then
     return 0
   else
@@ -217,9 +233,9 @@ function check_tecgraf_ver { # tambien version!
       installed_ver=`${TECGRAF_COMMAND} "print_ver=${lib}"`
       echo -n "${lib}: instalada:'$installed_ver' requerida:'$required_ver' .."
       [[ "$installed_ver" == "$required_ver" ]] && {
-        echo "OK"
+        eecho "OK"
       } || {
-        echo "FAIL"
+        eecho "FAIL"
         fail="Yes"
       }
     else
@@ -269,6 +285,7 @@ PROFILE_OPTION=''
 ACTION=''
 
 ORIG_DPKG_DIR=""
+QUIET=''
 
 if [ "$1" == "" ]; then
    ACTION="install"
@@ -303,6 +320,7 @@ else
 		   ;;
 		   test)
 		   	ACTION='test'
+			QUIET='SI'
 		   ;;
 		   *)
 	      	>&2 echo "ERROR: parametro desconocido '$1'"
@@ -313,32 +331,32 @@ else
 fi
 
 if [ "$ALT_TECGRAF_DIR" != "" ]; then
-	echo "Comprobando '$ALT_TECGRAF_DIR'"
+	eecho "Comprobando '$ALT_TECGRAF_DIR'"
 	[[ -d "$ALT_TECGRAF_DIR" ]] || { echo "'$ALT_TECGRAF_DIR' no existe"; exit 1; }
 	TECGRAF_DIR="$ALT_TECGRAF_DIR"
 fi
 
 if [ "$ALT_CHDKPTP_DIR" != "" ]; then
-	echo "Comprobando '$ALT_CHDKPTP_DIR'"
+	eecho "Comprobando '$ALT_CHDKPTP_DIR'"
 	[[ -d "$ALT_CHDKPTP_DIR" ]] || { echo "'$ALT_CHDKPTP_DIR' no existe"; exit 1; }
 	CHDKPTP_DIR="$ALT_CHDKPTP_DIR"
 fi
 
 if [[ "$CHDKPTP_DIR" =~ ^"/opt/src" ]]; then
-	echo "Verificando directorio /opt/src"
-	"$OWN_DIR/tools/check_src_dir" "/opt/src" && echo "OK" || {
+	eecho "Verificando directorio /opt/src"
+	"$OWN_DIR/tools/check_src_dir" "/opt/src" && eecho "OK" || {
 	    >&2 echo "ERROR: no existe o permisos insuficientes en '/opt/src'"
 	    exit 1
 	}
 fi
 
 if [ "$ORIG_PATH" != "" ]; then
-	echo "Comprobando '$ORIG_PATH'"
+	eecho "Comprobando '$ORIG_PATH'"
 	[[ -f "$ORIG_PATH" ]] || { echo "'$ORIG_PATH' no existe"; exit 1; }
 fi
 
 if [ "$ORIG_DPKG_DIR" != "" ]; then
-	echo "Comprobando $ORIG_DPKG_DIR"
+	eecho "Comprobando $ORIG_DPKG_DIR"
 	[[ -d "$ORIG_DPKG_DIR" ]] || { echo "'$ORIG_DPKG_DIR' no existe"; exit 1; }
 fi
 
@@ -363,10 +381,10 @@ case "$ACTION" in
    ;;
    test)
       test_chdkptp && { 
-      	echo "chdkptp instalado en '$CHDKPTP_DIR'"
+      	#echo "chdkptp instalado en '$CHDKPTP_DIR'"
       	exit 0
       } || { 
-      	echo "chdkptp NO está instalado en '$CHDKPTP_DIR'"
+      	#echo "chdkptp NO está instalado en '$CHDKPTP_DIR'"
       	exit 1 
       }
    ;;

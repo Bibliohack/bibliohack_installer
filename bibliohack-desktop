@@ -10,7 +10,7 @@ function check_and_remove_pkg() {
          echo "OK, '$pkg' removed"
       fi
       echo "OK, '$pkg' not installed"
-   done  
+   done
    return 0
 }
 
