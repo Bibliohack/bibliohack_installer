@@ -175,7 +175,7 @@ function install_chdkptp {
 	
 	if [ "$ORIG_URL" != "" ]; then
 	   FILE="${ORIG_URL##*/}"
-	   FILE_WE=`basename $FILE tar.gz`
+	   FILE_WE=`basename $FILE .tar.gz`
 		wget -N "$ORIG_URL" -P "$CHDKPTP_DIR" || exit 1
 		cd "$CHDKPTP_DIR" || exit 1
 		tar xzvf "$FILE"

@@ -37,6 +37,37 @@ tecgraf_check() {
 	fi
 }
 
+install_gem() {
+}
+
+cp_and_untar() {
+	# ORIG: path/to/file.tar.gz; DEST: path/to/dir; DESTDIR: dirname (opt)
+	[[ ! -z "$1" ]] && ORIG="$1" || exit 1
+	[[ ! -z "$2" ]] && DEST="$2" || exit 1 
+	[[ ! -z "$3" ]] && DESTDIR="$3"  
+	[[ -f "$ORIG" ]] || exit 1
+	[[ -d "$DEST" ]] || exit 1
+	
+	
+	TARFILE=`basename "$ORIG"`
+	
+	current="$PWDIR"
+	cp "$ORIG" "$DEST" | exit 1
+	cd "$DEST"
+	TARROOT=`tar -tf "$TARFILE" | head -1`
+	if [[ -z "$DESTDIR" ]]; then
+		tar xzvf "$TARFILE"
+		[[ -d "$TARROOT" ]] && ret=0 || ret=1
+		cd "$current"
+		return $ret
+	else
+		mkdir "$DESTDIR" || exit 1
+		tar xzvf "$TARFILE" -C "$DESTDIR" --strip-components=1 && ret=0 || ret=1
+		cd "$current"
+		return $ret
+	fi
+}
+
 OSNAME=`lsb_release -is`
 CODENM=`lsb_release -cs`
 RELEASN=`lsb_release -rs`
