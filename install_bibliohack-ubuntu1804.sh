@@ -37,34 +37,37 @@ tecgraf_check() {
 	fi
 }
 
-install_gem() {
-}
+#install_gem() {
+#}
 
 cp_and_untar() {
-	# ORIG: path/to/file.tar.gz; DEST: path/to/dir; DESTDIR: dirname (opt)
-	[[ ! -z "$1" ]] && ORIG="$1" || exit 1
-	[[ ! -z "$2" ]] && DEST="$2" || exit 1 
-	[[ ! -z "$3" ]] && DESTDIR="$3"  
-	[[ -f "$ORIG" ]] || exit 1
-	[[ -d "$DEST" ]] || exit 1
+	# ORIGPATH: path/to/file.tar.gz; DESTDIR: path/to/dir; TARBASECUSTOM: alt tar dir basename (opt)
+	[[ ! -z "$1" ]] && ORIGPATH="$1" || return 1
+	[[ ! -z "$2" ]] && DESTDIR="$2" || return 1
+	[[ ! -z "$3" ]] && TARBASECUSTOM="$3"  
+	[[ -f "$ORIGPATH" ]] || return 1
+	[[ -d "$DESTDIR" ]] || return 1
 	
-	
-	TARFILE=`basename "$ORIG"`
-	
-	current="$PWDIR"
-	cp "$ORIG" "$DEST" | exit 1
-	cd "$DEST"
-	TARROOT=`tar -tf "$TARFILE" | head -1`
-	if [[ -z "$DESTDIR" ]]; then
-		tar xzvf "$TARFILE"
-		[[ -d "$TARROOT" ]] && ret=0 || ret=1
-		cd "$current"
-		return $ret
+	current="$PWD"
+   cd "$DESTDIR"
+	if tar -tf "$ORIGPATH" >/dev/null 2>&1; then
+		cp "$ORIGPATH" "$DESTDIR" | exit 1
+		TARFILE=`basename "$ORIGPATH"`
+		TARBASE=`tar -tf "$TARFILE" | sort | head -1`
+		if [[ -z "$TARBASECUSTOM" ]]; then
+			tar xf "$TARFILE"
+			[[ -d "$TARBASE" ]] && ret=0 || ret=1
+			cd "$current"
+			return $ret
+		else
+			mkdir "$TARBASECUSTOM" || exit 1
+			tar xf "$TARFILE" -C "$TARBASECUSTOM" --strip-components=1 && ret=0 || ret=1
+			cd "$current"
+			return $ret
+		fi
 	else
-		mkdir "$DESTDIR" || exit 1
-		tar xzvf "$TARFILE" -C "$DESTDIR" --strip-components=1 && ret=0 || ret=1
 		cd "$current"
-		return $ret
+		return 1
 	fi
 }
 
@@ -129,7 +132,7 @@ BUILD_ESSENTIAL="INSTALLED"
 if [ "$BUILD_ESSENTIAL" != "INSTALLED" ]; then
 	current_folder="$PWD"
 	cd "$BIBLIOHACK_ORIG/deb/build-essential"
-	"$INSTALADORES_DIR/tools/run_as_root" "dpkg -iEG" *.deb || {
+	sudo dpkg -iEG *.deb || {
 		>&2 echo "ERROR al instalar con dpkg"
 		exit 1
 	}
