@@ -83,10 +83,14 @@ else
 	exit 1
 fi
 
+# --------------------------------------------------------
+
 OWN_SCRIPT_DIR=$(dirname "$0")
 cd "$OWN_SCRIPT_DIR"
 INSTALADORES_DIR="$(pwd -P)"
 cd "$INSTALADORES_DIR"
+
+# --------------------------------------------------------
 
 BIBLIOHACK_DIR=/opt/bibliohack
 TMPDIR="$BIBLIOHACK_DIR/.tmp"
@@ -96,7 +100,7 @@ COMPONENTS="$BIBLIOHACK_DIR/components"
 [[ "$1" != "" ]] && BIBLIOHACK_ORIG="$1" || error_msg "error: BIBLIOHACK_ORIG='$BIBLIOHACK_ORIG'"
 BIBLIOHACK_ORIG_SRCDIR="$BIBLIOHACK_ORIG/src"
 
-PDFBEADS_DIR="$COMPONENTS/pdfbeads-kopi" # esta carpeta se crea via tar!
+PDFBEADS_DIR="$COMPONENTS/pdfbeads-kopi" 
 CHDKPTP_DIR="$RESOURCES/chdkptp-461"
 TECGRAF_DIR="$RESOURCES/tecgraf"
 
@@ -192,9 +196,8 @@ if ! pdfbeads_check; then
    verify_iconv=$(gem list -i iconv)
 	if [ "$verify_iconv" == "false" ]; then
 		echo "instalando iconv"
-		cp "$GEMS_ORIG/iconv_ubuntu_bionic-x86_64-rubygem.tar.gz" "$TMPDIR/" || exit 1
-		cd "$TMPDIR/"
-		tar xzvf iconv_ubuntu_bionic-x86_64-rubygem.tar.gz || exit 1
+		TARBASE=""; cp_and_untar "$GEMS_ORIG/iconv_ubuntu_bionic-x86_64-rubygem.tar.gz" "$TMPDIR" || exit 1
+		cd "${TMPDIR}/${TARBASE}" || {echo "error: cd ${TMPDIR}/${TARBASE}"; exit 1;}
 		cd iconv/cache || exit 1
 
 		sudo gem install --force --local *.gem || exit 1
@@ -202,15 +205,14 @@ if ! pdfbeads_check; then
 		[[ "$verify_iconv" == "false" ]] && error_msg "error: no se pudo instalar iconv"
 	else
 		if [ "$verify_iconv" == "true" ]; then
-			echo "iconv ya instalado"
+			echo "iconv ya instalado ok"
 		else
 			echo "error!!"
 			exit 1
 		fi
 	fi
-	cp "$BIBLIOHACK_ORIG_SRCDIR/pdfbeads-kopi.tar.gz" "$COMPONENTS" | exit 1
-	cd "$COMPONENTS" || exit 1
-	tar xzvf pdfbeads-kopi.tar.gz
+	CUSTOM_TARDIR="${PDFBEADS_DIR##*/}"
+	cp_and_untar "$BIBLIOHACK_ORIG_SRCDIR/pdfbeads-kopi.tar.gz" "$COMPONENTS" "$CUSTOM_TARDIR" || exit 1
 	[[ -d "$PDFBEADS_DIR" ]] || error_msg "'$PDFBEADS_DIR' no existe!"
 
 	if pdfbeads_check; then 
