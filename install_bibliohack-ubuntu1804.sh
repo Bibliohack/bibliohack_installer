@@ -7,8 +7,8 @@ RELEASN=`lsb_release -rs`
 if [ "$RELEASN" == '18.04' ] && [ "$OSNAME" == 'Ubuntu' ]; then
    echo "*** Instalando Bibliohack en $OSNAME $CODENAME $RELEASN ***"
 else
-	echo "Este instalador no funciona en $OSNAME $RELEASE"
-	echo "Debe instalarse en Ubuntu 18.04 bionic"
+	echo "Este instalador no funciona en $OSNAME $RELEASN '$CODENM'"
+	echo "Debe instalarse en Ubuntu 18.04 'bionic'"
 	exit 1
 fi
 
@@ -31,6 +31,8 @@ COMPONENTS="$BIBLIOHACK_DIR/components"
 BIBLIOHACK_ORIG_SRCDIR="$BIBLIOHACK_ORIG/src"
 BIBLIOHACK_ORIG_DPKG="$BIBLIOHACK_ORIG/deb"
 
+FCENTESIS_DIR="$BIBLIOHACK_ORIG/fcen-tesis"
+DALCLICK_DIR="$BIBLIOHACK_ORIG/dalclick"
 SCANTAILOR_ADVANCED_DIR="$COMPONENTS/scantailor-advanced"
 SCANTAILOR_UNIVERSAL_DIR="$COMPONENTS/scantailor-universal"
 SCANTAILOR_ENHANCED_DIR="$COMPONENTS/scantailor-enhanced"
@@ -92,8 +94,16 @@ error_msg() {
 	exit 1
 }
 
+fcentesis_check() {
+   [[ -f "$FCENTESIS_DIR/fcen-postprocessing/scripts/fcen-postprocessing " ]] && return 0 || return 1
+}
+
+dalclick_check() {
+   [[ -f "$DALCLICK_DIR/dalclick" ]] && return 0 || return 1
+}
+
 scantailor_advanced_check() {
-	check=$( $SCANTAILOR_UNIVERSAL_DIR/scantailor-cli -h | sed -n '2p' )
+	check=$( $SCANTAILOR_ADVANCED_DIR/scantailor-cli -h | sed -n '2p' )
 	if [ "$check" == "Scan Tailor is a post-processing tool for scanned pages." ]
 	 then
 	  return 0
@@ -113,7 +123,7 @@ scantailor_universal_check() {
 }
 
 scantailor_enhanced_check() {
-	check=$( $SCANTAILOR_UNIVERSAL_DIR/scantailor-cli -h | sed -n '2p' )
+	check=$( $SCANTAILOR_ENHANCED_DIR/scantailor-cli -h | sed -n '2p' )
 	if [ "$check" == "Scan Tailor is a post-processing tool for scanned pages." ]
 	 then
 	  return 0
@@ -121,6 +131,17 @@ scantailor_enhanced_check() {
 	  return 1
 	fi
 }
+
+tesseract_check() {
+	check=$( tesseract -v  2>&1 | head -n 1 )
+	if [[ "$check" =~ ^"tesseract 3" ]]
+	 then
+	  return 0
+	else
+	  return 1
+	fi
+}
+
 
 pdfbeads_check() {
 	check=$( $PDFBEADS_DIR/bin/pdfbeads -h | head -n 1 )
@@ -201,27 +222,32 @@ cp_and_untar() {
 	fi
 }
 
-tecgraf_ok="
-"
-chdkptp_ok="
-"
-pdfbeads_ok="
-"
-tesseract_ok=" _____                                 _      ___  _  __
-|_   _|__  ___ ___  ___ _ __ __ _  ___| |_   / _ \| |/ /
-  | |/ _ \/ __/ __|/ _   '__/ _\` |/ __| __| | | | | ' /
-  | |  __/\__ \__ \  __/ | | (_| | (__| |_  | |_| | . \\
-  |_|\___||___/___/\___|_|  \__,_|\___|\__|  \___/|_|\_\\
-"
-scantailor_ok=""
+# config bibliohack
 
-dalclick_ok=""
+if [ -f "$BIBLIOHACK_DIR/.config" ]
+   . "$BIBLIOHACK_DIR/.config"
+fi
 
-fcentesis_ok=""
+if [[ -z $INSTITUCION_ID ]]; then
+   echo "Ingresa el nombre de la institución"
+   read -p "> " $INSTITUCION
 
-echo "$tesseract_ok"
+   while true
+   do
+      echo "Ingresa un nombre identificador sin espacios"
+      echo "ni acentos, de entre 2 y 16 caracteres"
+      read -p "> " $INSTITUCION_ID
+      [[ "$INSTITUCION_ID" =~ ^[a-zA-Z0-9_-]{2,16}$ ]] && break || echo "NO VALIDO!"
+   done
+   config_file=$(cat << EOF
+INSTITUCION="$INSTITUCION_ID"
+INSTITUCION_ID="$INSTITUCION_ID"
 
-exit 1
+EOF
+   )
+   echo "$config_file" > "$BIBLIOHACK_DIR/.config" || exit 1
+fi
+
 # --------------------------------------------------------
 # desktop
 
@@ -241,6 +267,19 @@ if [ "$BUILD_ESSENTIAL" != "INSTALLED" ]; then
 fi
 
 # --------------------------------------------------------
+tecgraf_ok=$(cat <<EOF
+ _____                         __
+|_   _|__  ___ __ _ _ __ __ _ / _|
+  | |/ _ \/ __/ _\` | '__/ _\` | |_
+  | |  __/ (_| (_| | | | (_| |  _|
+  |_|\___|\___\__, |_|  \__,_|_|
+             |___/
+
+  ** Instalado **
+
+EOF
+)
+
 echo "instalando tecgraf"
 
 if ! tecgraf_check; then
@@ -249,9 +288,23 @@ if ! tecgraf_check; then
 	}
    echo $INSTALADORES_DIR/tecgraf install profile=d tecgraf_dir="$TECGRAF_DIR" orig_dpkg_dir="$TECGRAF_ORIG_DPKG_DIR" orig_dir="$TECGRAF_ORIG"
 	$INSTALADORES_DIR/tecgraf install profile=d tecgraf_dir="$TECGRAF_DIR" orig_dpkg_dir="$TECGRAF_ORIG_DPKG_DIR" orig_dir="$TECGRAF_ORIG" || exit 1
+   echo "$tecgraf_ok"
 fi
 
 # --------------------------------------------------------
+
+chdkptp_ok=$(cat <<EOF
+  ____ _   _ ____  _  ______ _____ ____
+ / ___| | | |  _ \| |/ /  _ \_   _|  _ \
+| |   | |_| | | | | ' /| |_) || | | |_) |
+| |___|  _  | |_| | . \|  __/ | | |  __/
+ \____|_| |_|____/|_|\_\_|    |_| |_|
+
+  ** Instalado **
+
+EOF
+)
+
 echo "instalando chdkptp"
 
 # Se encontraron errores al procesar:
@@ -274,11 +327,24 @@ if ! chdkptp_check; then
 	}
 	echo $INSTALADORES_DIR/chdkptp install profile=d tecgraf_dir="$TECGRAF_DIR" chdkptp_dir="$CHDKPTP_DIR" orig_dpkg_dir="$CHDKPTP_ORIG_DPKG_DIR" orig_path="$CHDKPTP_SRC_TAR_PATH"
 	$INSTALADORES_DIR/chdkptp install profile=d tecgraf_dir="$TECGRAF_DIR" chdkptp_dir="$CHDKPTP_DIR" orig_dpkg_dir="$CHDKPTP_ORIG_DPKG_DIR" orig_path="$CHDKPTP_SRC_TAR_PATH" || error_msg "fallo la instalacion de chdkptp"
+   echo "$chdkptp_ok"
 else
 	echo "chdkptp ya instalado"
 fi
 
 # --------------------------------------------------------
+pdfbeads_ok=$(cat <<EOF
+ ____     _  __ _                    _
+|  _ \ __| |/ _| |__   ___  __ _  __| |___
+| |_) / _\` | |_| '_ \ / _ \/ _\` |/ _\` / __|
+|  __/ (_| |  _| |_) |  __/ (_| | (_| \__ \
+|_|   \__,_|_| |_.__/ \___|\__,_|\__,_|___/
+
+  ** Instalado **
+
+EOF
+)
+
 echo "instalando pdfbeads"
 
 if ! pdfbeads_check; then
@@ -309,7 +375,7 @@ if ! pdfbeads_check; then
 	[[ -d "$PDFBEADS_DIR" ]] || error_msg "'$PDFBEADS_DIR' no existe!"
 
 	if pdfbeads_check; then
-		echo "pdfbeads instalado ok"
+		echo "$pdfbeads_ok"
 	else
 		echo "error! pdfbeads no se instalo correctamente"
 	fi
@@ -320,20 +386,43 @@ fi
 
 # ------------------------------------------
 # tesseract
-# TESSERACT="INSTALLED"
+tesseract_ok=$(cat <<EOF
+ _____                                 _
+|_   _|__  ___ ___  ___ _ __ __ _  ___| |_
+  | |/ _ \/ __/ __|/ _ \ '__/ _\` |/ __| __|
+  | |  __/\__ \__ \  __/ | | (_| | (__| |_
+  |_|\___||___/___/\___|_|  \__,_|\___|\__|
 
-if [ "$TESSERACT" != "INSTALLED" ]; then
+  ** Instalado **
+
+EOF
+)
+
+if ! tesseract_check; then
 	dpkg_install "$TESSERACT_ORIG_DPKG_DIR" || exit 1
+   echo "$tesseract_ok"
 fi
 
 # ------------------------------------------
 # scantailor
+scantailor_ok=$(cat <<EOF
+ ____                  _        _ _
+/ ___|  ___ __ _ _ __ | |_ __ _(_) | ___  _ __
+\___ \ / __/ _\` | '_ \| __/ _\` | | |/ _ \| '__|
+ ___) | (_| (_| | | | | || (_| | | | (_) | |
+|____/ \___\__,_|_| |_|\__\__,_|_|_|\___/|_|
 
+  ** Instalado **
+
+EOF
+)
+scantailor_instalado=""
 if ! scantailor_enhanced_check; then
 	dpkg_install "$SCANTAILOR_ORIG_DPKG_DIR" || exit 1
 	CUSTOM_TARDIR="${SCANTAILOR_ENHANCED_DIR##*/}"
 	cp_and_untar "$SCANTAILOR_ENHANCED_TAR_PATH" "$COMPONENTS" "$CUSTOM_TARDIR" || exit 1
 	scantailor_enhanced_check && echo "Scantailor Enhanced instalado: OK" || exit 1
+   scantailor_instalado="OK"
 else
 	echo "Scantailor Enhanced ya instalado"
 fi
@@ -343,6 +432,7 @@ if ! scantailor_universal_check; then
 	CUSTOM_TARDIR="${SCANTAILOR_UNIVERSAL_DIR##*/}"
 	cp_and_untar "$SCANTAILOR_UNIVERSAL_TAR_PATH" "$COMPONENTS" "$CUSTOM_TARDIR" || exit 1
 	scantailor_universal_check && echo "Scantailor Universal instalado: OK" || exit 1
+   scantailor_instalado="OK"
 else
 	echo "Scantailor Universal ya instalado"
 fi
@@ -352,8 +442,108 @@ if ! scantailor_advanced_check; then
 	CUSTOM_TARDIR="${SCANTAILOR_ADVANCED_DIR##*/}"
 	cp_and_untar "$SCANTAILOR_ADVANCED_TAR_PATH" "$COMPONENTS" "$CUSTOM_TARDIR" || exit 1
 	scantailor_advanced_check && echo "Scantailor Advanced instalado: OK" || exit 1
+   scantailor_instalado="OK"
 else
 	echo "Scantailor Advanced ya instalado"
+fi
+
+[[ "$scantailor_instalado" == "OK" ]] && echo "$scantailor_ok"
+
+# ------------------------------------------
+dalclick_ok=$(cat <<EOF
+ ____        _      _ _      _
+|  _ \  __ _| | ___| (_) ___| | __
+| | | |/ _\` | |/ __| | |/ __| |/ /
+| |_| | (_| | | (__| | | (__|   <
+|____/ \__,_|_|\___|_|_|\___|_|\_\
+
+  ** Instalado **
+
+EOF
+)
+if ! dalclick_check; then
+   dpkg_install "$DALCLICK_ORIG_DPKG_DIR" || exit 1
+   CUSTOM_TARDIR="${DALCLICK_DIR##*/}"
+   cp_and_untar "$DALCLICK_SRC_TAR_PATH" "$BIBLIOHACK_DIR" "$CUSTOM_TARDIR" || exit 1
+   BIB_DIR="/bib/$INSTITUCION_ID"
+
+   [[ -d "/bib" ]] || {
+      sudo mkdir /bib || exit 1
+   }
+
+   [[ -d "$BIB_DIR" ]] || {
+      sudo mkdir "$BIB_DIR" || exit 1
+      sudo chmod a+rw "$BIB_DIR" || exit 1
+   }
+
+   config_file=$(cat << EOF
+# descomente DALCLICK_HOME sólo si desea cambiar el valor por defecto
+# DALCLICK_HOME="$HOME/.dalclick"
+
+DALCLICK_PROJECTS="$BIB_DIR"
+ROTATE_ODD_DEFAULT="90"
+ROTATE_EVEN_DEFAULT="-90"
+ROTATE_SINGLE_DEFAULT="180"
+FILE_BROWSER='/usr/bin/nautilus'
+PDF_VIEWER='/usr/bin/evince'
+
+# NOC_MODE (numero de cámaras)
+# 'odd-even', dos cámaras para estativo en 'V'
+# 'single', una cámara para estativo plano
+NOC_MODE='odd-even'
+# PDFBEADS_QUALITY="50" # (1...100), el valor por defecto de pdfbeads es 50
+
+EOF
+   )
+   components_file=$(cat << EOF
+# Components paths
+
+SCANTAILOR_PATH="$SCANTAILOR_UNIVERSAL_DIR/scantailor"
+SCANTAILOR_ADV_PATH="$SCANTAILOR_ADVANCED_DIR/scantailor"
+PDFBEADS_PATH="$PDFBEADS_DIR/bin/pdfbeads"
+CHDKPTP_PATH="$CHDKPTP_DIR/chdkptp"
+
+#SE_BIN="${SCANTAILOR_PATH}-cli" #Scantailor enhanced exec path
+#PB_BIN="$PDFBEADS_PATH" #Pdfbeads enhanced
+
+EOF
+   )
+   if [[ ! -d "$HOME/.dalclick" ]]; then
+      mkdir "$HOME/.dalclick" || exit 1
+   fi
+   echo "config_file" > "$HOME/.dalclick/CONFIG"
+   echo "components_file" > "$DALCLICK_DIR/COMPONENTS"
+   dalclick_check && echo "dalclick_ok" || exit 1
+fi
+
+# ------------------------------------------
+fcentesis_ok=$(cat <<EOF
+ _____                    _            _
+|  ___|__ ___ _ __       | |_ ___  ___(_)___
+| |_ / __/ _ \ '_ \ _____| __/ _ \/ __| / __|
+|  _| (_|  __/ | | |_____| ||  __/\__ \ \__ \
+|_|  \___\___|_| |_|      \__\___||___/_|___/
+
+  ** Instalado **
+
+EOF
+)
+
+if ! fcentesis_check; then
+   CUSTOM_TARDIR="${FCENTESIS_DIR##*/}"
+   cp_and_untar "$FCENTESIS_SRC_TAR_PATH" "$BIBLIOHACK_DIR" "$CUSTOM_TARDIR" || exit 1
+   components_file=$(cat << EOF
+# Components paths
+
+SE_BIN="$SCANTAILOR_UNIVERSAL_DIR/scantailor-cli" #Scantailor enhanced exec path
+PB_BIN="$PDFBEADS_DIR/bin/pdfbeads" #Pdfbeads enhanced
+
+EOF
+   )
+   echo "$components_file" > "$FCENTESIS_DIR/fcen-postprocessing/scripts/COMPONENTS" || {
+      error_msg "No se pudo crear '$FCENTESIS_DIR/fcen-postprocessing/scripts/COMPONENTS'"
+   }
+   echo "$fcentesis_ok"
 fi
 
 # ------------------------------------------
