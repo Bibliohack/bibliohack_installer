@@ -122,15 +122,15 @@ scantailor_universal_check() {
 	fi
 }
 
-scantailor_enhanced_check() {
-	check=$( $SCANTAILOR_ENHANCED_DIR/scantailor-cli -h | sed -n '2p' )
-	if [ "$check" == "Scan Tailor is a post-processing tool for scanned pages." ]
-	 then
-	  return 0
-	else
-	  return 1
-	fi
-}
+# scantailor_enhanced_check() {
+# 	check=$( $SCANTAILOR_ENHANCED_DIR/scantailor-cli -h | sed -n '2p' )
+# 	if [ "$check" == "Scan Tailor is a post-processing tool for scanned pages." ]
+# 	 then
+# 	  return 0
+# 	else
+# 	  return 1
+# 	fi
+# }
 
 tesseract_check() {
 	check=$( tesseract -v  2>&1 | head -n 1 )
@@ -417,15 +417,15 @@ scantailor_ok=$(cat <<EOF
 EOF
 )
 scantailor_instalado=""
-if ! scantailor_enhanced_check; then
-	dpkg_install "$SCANTAILOR_ORIG_DPKG_DIR" || exit 1
-	CUSTOM_TARDIR="${SCANTAILOR_ENHANCED_DIR##*/}"
-	cp_and_untar "$SCANTAILOR_ENHANCED_TAR_PATH" "$COMPONENTS" "$CUSTOM_TARDIR" || exit 1
-	scantailor_enhanced_check && echo "Scantailor Enhanced instalado: OK" || exit 1
-   scantailor_instalado="OK"
-else
-	echo "Scantailor Enhanced ya instalado"
-fi
+# if ! scantailor_enhanced_check; then
+# 	dpkg_install "$SCANTAILOR_ORIG_DPKG_DIR" || exit 1
+# 	CUSTOM_TARDIR="${SCANTAILOR_ENHANCED_DIR##*/}"
+# 	cp_and_untar "$SCANTAILOR_ENHANCED_TAR_PATH" "$COMPONENTS" "$CUSTOM_TARDIR" || exit 1
+# 	scantailor_enhanced_check && echo "Scantailor Enhanced instalado: OK" || exit 1
+#    scantailor_instalado="OK"
+# else
+# 	echo "Scantailor Enhanced ya instalado"
+# fi
 
 if ! scantailor_universal_check; then
 	dpkg_install "$SCANTAILOR_UNIVERSAL_ORIG_DPKG_DIR" || exit 1
@@ -513,7 +513,7 @@ EOF
    fi
    echo "config_file" > "$HOME/.dalclick/CONFIG"
    echo "components_file" > "$DALCLICK_DIR/COMPONENTS"
-   dalclick_check && echo "dalclick_ok" || exit 1
+   dalclick_check && echo "$dalclick_ok" || exit 1
 fi
 
 # ------------------------------------------
@@ -535,7 +535,7 @@ if ! fcentesis_check; then
    components_file=$(cat << EOF
 # Components paths
 
-SE_BIN="$SCANTAILOR_UNIVERSAL_DIR/scantailor-cli" #Scantailor enhanced exec path
+SE_BIN="$SCANTAILOR_UNIVERSAL_DIR/scantailor-cli" #Scantailor universal exec path
 PB_BIN="$PDFBEADS_DIR/bin/pdfbeads" #Pdfbeads enhanced
 
 EOF
