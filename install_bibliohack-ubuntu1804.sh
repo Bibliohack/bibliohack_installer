@@ -1,8 +1,125 @@
 #!/bin/bash
 
+OSNAME=`lsb_release -is`
+CODENM=`lsb_release -cs`
+RELEASN=`lsb_release -rs`
+
+if [ "$RELEASN" == '18.04' ] && [ "$OSNAME" == 'Ubuntu' ]; then
+   echo "*** Instalando Bibliohack en $OSNAME $CODENAME $RELEASN ***"
+else
+	echo "Este instalador no funciona en $OSNAME $RELEASE"
+	echo "Debe instalarse en Ubuntu 18.04 bionic"
+	exit 1
+fi
+
+# --------------------------------------------------------
+
+OWN_SCRIPT_DIR=$(dirname "$0")
+cd "$OWN_SCRIPT_DIR"
+INSTALADORES_DIR="$(pwd -P)"
+cd "$INSTALADORES_DIR"
+
+# --------------------------------------------------------
+
+BIBLIOHACK_DIR=/opt/bibliohack
+TMPDIR="$BIBLIOHACK_DIR/.tmp"
+RESOURCES="$BIBLIOHACK_DIR/resources"
+COMPONENTS="$BIBLIOHACK_DIR/components"
+
+[[ "$1" != "" ]] && BIBLIOHACK_ORIG="$1" || error_msg "error: BIBLIOHACK_ORIG='$BIBLIOHACK_ORIG'"
+
+BIBLIOHACK_ORIG_SRCDIR="$BIBLIOHACK_ORIG/src"
+BIBLIOHACK_ORIG_DPKG="$BIBLIOHACK_ORIG/deb"
+
+SCANTAILOR_ADVANCED_DIR="$COMPONENTS/scantailor-advanced"
+SCANTAILOR_UNIVERSAL_DIR="$COMPONENTS/scantailor-universal"
+SCANTAILOR_ENHANCED_DIR="$COMPONENTS/scantailor-enhanced"
+PDFBEADS_DIR="$COMPONENTS/pdfbeads-kopi"
+CHDKPTP_DIR="$RESOURCES/chdkptp-461"
+TECGRAF_DIR="$RESOURCES/tecgraf"
+
+[[ -d "$BIBLIOHACK_DIR" ]] || {
+	sudo mkdir "$BIBLIOHACK_DIR" || exit 1
+}
+sudo chmod a+rw "$BIBLIOHACK_DIR"
+
+[[ -d "$RESOURCES" ]] || {
+	mkdir "$RESOURCES" || exit 1
+}
+[[ -d "$COMPONENTS" ]] || {
+	mkdir "$COMPONENTS" || exit 1
+}
+[[ -d "$TMPDIR" ]] || {
+	mkdir "$TMPDIR" || exit 1
+}
+
+# --------------------------------------------------------
+# chdkptp orig paths
+CHDKPTP_ORIG_DPKG_DIR="$BIBLIOHACK_ORIG_DPKG/chdkptp"
+CHDKPTP_SRC_TAR_PATH="$BIBLIOHACK_ORIG_SRCDIR/chdkptp-461.tar.gz"
+
+# tecgraf orig paths
+TECGRAF_ORIG_DPKG_DIR="$BIBLIOHACK_ORIG_DPKG/tecgraf"
+TECGRAF_ORIG="$BIBLIOHACK_ORIG/tecgraf"
+
+# pdfbeads orig paths
+GEMS_ORIG="$BIBLIOHACK_ORIG/gem"
+ICONV_RUBYGEM_TAR="iconv_ubuntu_bionic-x86_64-rubygem.tar.gz"
+PDFBEADS_ORIG_DPKG_DIR="$BIBLIOHACK_ORIG_DPKG/ruby-pdfbeads"
+PDFBEADS_SRC_TAR_PATH="$BIBLIOHACK_ORIG_SRCDIR/pdfbeads-kopi.tar.gz"
+
+# tesseract orig paths
+TESSERACT_ORIG_DPKG_DIR="$BIBLIOHACK_ORIG_DPKG/tesseract"
+
+# scantailor orig paths
+SCANTAILOR_ORIG_DPKG_DIR="$BIBLIOHACK_ORIG_DPKG/scantailor"
+SCANTAILOR_UNIVERSAL_ORIG_DPKG_DIR="$BIBLIOHACK_ORIG_DPKG/scantailor-universal-qt5"
+SCANTAILOR_ADVANCED_ORIG_DPKG_DIR="$BIBLIOHACK_ORIG_DPKG/scantailor-advanced-qt5-extra"
+
+SCANTAILOR_ENHANCED_TAR_PATH="$BIBLIOHACK_ORIG_BINDIR/scantailor_enhanced-???-ubuntu_bionic-18.04-x86_64-bin.tar.gz"
+SCANTAILOR_UNIVERSAL_TAR_PATH="$BIBLIOHACK_ORIG_BINDIR/scantailor_universal-0.2.5-ubuntu_bionic-x86_64-bin.tar.gz"
+SCANTAILOR_ADVANCED_TAR_PATH="$BIBLIOHACK_ORIG_BINDIR/scantailor_advanced-1.0.16-ubuntu_bionic-18.04-x86_64-bin.tar.xz"
+
+# dalclick orig paths
+DALCLICK_ORIG_DPKG_DIR="$BIBLIOHACK_ORIG_DPKG/dalclick"
+DALCLICK_SRC_TAR_PATH="$BIBLIOHACK_ORIG_SRCDIR/dalclick.tar.gz"
+
+# fcen-tesis orig paths
+FCENTESIS_SRC_TAR_PATH="$BIBLIOHACK_ORIG_SRCDIR/fcen-tesis.tar.gz"
+
 error_msg() {
 	echo "$1"
 	exit 1
+}
+
+scantailor_advanced_check() {
+	check=$( $SCANTAILOR_UNIVERSAL_DIR/scantailor-cli -h | sed -n '2p' )
+	if [ "$check" == "Scan Tailor is a post-processing tool for scanned pages." ]
+	 then
+	  return 0
+	else
+	  return 1
+	fi
+}
+
+scantailor_universal_check() {
+	check=$( $SCANTAILOR_UNIVERSAL_DIR/scantailor-cli -h | sed -n '2p' )
+	if [ "$check" == "Scan Tailor is a post-processing tool for scanned pages." ]
+	 then
+	  return 0
+	else
+	  return 1
+	fi
+}
+
+scantailor_enhanced_check() {
+	check=$( $SCANTAILOR_UNIVERSAL_DIR/scantailor-cli -h | sed -n '2p' )
+	if [ "$check" == "Scan Tailor is a post-processing tool for scanned pages." ]
+	 then
+	  return 0
+	else
+	  return 1
+	fi
 }
 
 pdfbeads_check() {
@@ -40,14 +157,27 @@ tecgraf_check() {
 #install_gem() {
 #}
 
+dpkg_install() {
+	[[ ! -z "$1" ]] && ORIGDPKG="$1" || return 1
+	current_folder="$PWD"
+	cd "$ORIGDPKG"
+	sudo dpkg -iEG *.deb || {
+		>&2 echo "ERROR al instalar con dpkg"
+		cd "$current_folder"
+		return 1
+	}
+	cd "$current_folder"
+	return 0
+}
+
 cp_and_untar() {
 	# ORIGPATH: path/to/file.tar.gz; DESTDIR: path/to/dir; TARBASECUSTOM: alt tar dir basename (opt)
 	[[ ! -z "$1" ]] && ORIGPATH="$1" || return 1
 	[[ ! -z "$2" ]] && DESTDIR="$2" || return 1
-	[[ ! -z "$3" ]] && TARBASECUSTOM="$3"  
+	[[ ! -z "$3" ]] && TARBASECUSTOM="$3"
 	[[ -f "$ORIGPATH" ]] || return 1
 	[[ -d "$DESTDIR" ]] || return 1
-	
+
 	current="$PWD"
    cd "$DESTDIR"
 	if tar -tf "$ORIGPATH" >/dev/null 2>&1; then
@@ -71,54 +201,27 @@ cp_and_untar() {
 	fi
 }
 
-OSNAME=`lsb_release -is`
-CODENM=`lsb_release -cs`
-RELEASN=`lsb_release -rs`
+tecgraf_ok="
+"
+chdkptp_ok="
+"
+pdfbeads_ok="
+"
+tesseract_ok=" _____                                 _      ___  _  __
+|_   _|__  ___ ___  ___ _ __ __ _  ___| |_   / _ \| |/ /
+  | |/ _ \/ __/ __|/ _   '__/ _\` |/ __| __| | | | | ' /
+  | |  __/\__ \__ \  __/ | | (_| | (__| |_  | |_| | . \\
+  |_|\___||___/___/\___|_|  \__,_|\___|\__|  \___/|_|\_\\
+"
+scantailor_ok=""
 
-if [ "$RELEASN" == '18.04' ] && [ "$OSNAME" == 'Ubuntu' ]; then
-   echo "*** Instalando Bibliohack en $OSNAME $CODENAME $RELEASN ***" 
-else
-	echo "Este instalador no funciona en $OSNAME $RELEASE"
-	echo "Debe instalarse en Ubuntu 18.04 bionic"
-	exit 1
-fi
+dalclick_ok=""
 
-# --------------------------------------------------------
+fcentesis_ok=""
 
-OWN_SCRIPT_DIR=$(dirname "$0")
-cd "$OWN_SCRIPT_DIR"
-INSTALADORES_DIR="$(pwd -P)"
-cd "$INSTALADORES_DIR"
+echo "$tesseract_ok"
 
-# --------------------------------------------------------
-
-BIBLIOHACK_DIR=/opt/bibliohack
-TMPDIR="$BIBLIOHACK_DIR/.tmp"
-RESOURCES="$BIBLIOHACK_DIR/resources"
-COMPONENTS="$BIBLIOHACK_DIR/components"
-
-[[ "$1" != "" ]] && BIBLIOHACK_ORIG="$1" || error_msg "error: BIBLIOHACK_ORIG='$BIBLIOHACK_ORIG'"
-BIBLIOHACK_ORIG_SRCDIR="$BIBLIOHACK_ORIG/src"
-
-PDFBEADS_DIR="$COMPONENTS/pdfbeads-kopi" 
-CHDKPTP_DIR="$RESOURCES/chdkptp-461"
-TECGRAF_DIR="$RESOURCES/tecgraf"
-
-[[ -d "$BIBLIOHACK_DIR" ]] || {
-	sudo mkdir "$BIBLIOHACK_DIR" || exit 1
-}
-sudo chmod a+rw "$BIBLIOHACK_DIR"
-
-[[ -d "$RESOURCES" ]] || {
-	mkdir "$RESOURCES" || exit 1
-}
-[[ -d "$COMPONENTS" ]] || {
-	mkdir "$COMPONENTS" || exit 1
-}
-[[ -d "$TMPDIR" ]] || {
-	mkdir "$TMPDIR" || exit 1
-}
-
+exit 1
 # --------------------------------------------------------
 # desktop
 
@@ -131,16 +234,10 @@ sudo chmod a+rw "$BIBLIOHACK_DIR"
 # --------------------------------------------------------
 echo "instalando 'build essential'"
 
-BUILD_ESSENTIAL="INSTALLED"
+# BUILD_ESSENTIAL="INSTALLED"
 
 if [ "$BUILD_ESSENTIAL" != "INSTALLED" ]; then
-	current_folder="$PWD"
-	cd "$BIBLIOHACK_ORIG/deb/build-essential"
-	sudo dpkg -iEG *.deb || {
-		>&2 echo "ERROR al instalar con dpkg"
-		exit 1
-	}
-	cd "$current_folder"
+	dpkg_install "$BIBLIOHACK_ORIG/deb/build-essential"
 fi
 
 # --------------------------------------------------------
@@ -150,7 +247,8 @@ if ! tecgraf_check; then
 	[[ -d "$TECGRAF_DIR" ]] || {
 		mkdir "$TECGRAF_DIR" || exit 1
 	}
-	$INSTALADORES_DIR/tecgraf install profile=d tecgraf_dir="$TECGRAF_DIR" orig_dpkg_dir="$BIBLIOHACK_ORIG/deb/tecgraf" orig_dir="$BIBLIOHACK_ORIG/tecgraf" || exit 1
+   echo $INSTALADORES_DIR/tecgraf install profile=d tecgraf_dir="$TECGRAF_DIR" orig_dpkg_dir="$TECGRAF_ORIG_DPKG_DIR" orig_dir="$TECGRAF_ORIG"
+	$INSTALADORES_DIR/tecgraf install profile=d tecgraf_dir="$TECGRAF_DIR" orig_dpkg_dir="$TECGRAF_ORIG_DPKG_DIR" orig_dir="$TECGRAF_ORIG" || exit 1
 fi
 
 # --------------------------------------------------------
@@ -174,9 +272,8 @@ if ! chdkptp_check; then
 	[[ -d "$CHDKPTP_DIR" ]] || {
 		mkdir "$CHDKPTP_DIR" || exit 1
 	}
-	echo $INSTALADORES_DIR/chdkptp install profile=d tecgraf_dir="$TECGRAF_DIR" chdkptp_dir="$CHDKPTP_DIR" orig_dpkg_dir="$BIBLIOHACK_ORIG/deb/chdkptp" orig_path="$BIBLIOHACK_ORIG/src/chdkptp-461.tar.gz"
-
-	$INSTALADORES_DIR/chdkptp install profile=d tecgraf_dir="$TECGRAF_DIR" chdkptp_dir="$CHDKPTP_DIR" orig_dpkg_dir="$BIBLIOHACK_ORIG/deb/chdkptp" orig_path="$BIBLIOHACK_ORIG/src/chdkptp-461.tar.gz" || error_msg "fallo la instalacion de chdkptp"
+	echo $INSTALADORES_DIR/chdkptp install profile=d tecgraf_dir="$TECGRAF_DIR" chdkptp_dir="$CHDKPTP_DIR" orig_dpkg_dir="$CHDKPTP_ORIG_DPKG_DIR" orig_path="$CHDKPTP_SRC_TAR_PATH"
+	$INSTALADORES_DIR/chdkptp install profile=d tecgraf_dir="$TECGRAF_DIR" chdkptp_dir="$CHDKPTP_DIR" orig_dpkg_dir="$CHDKPTP_ORIG_DPKG_DIR" orig_path="$CHDKPTP_SRC_TAR_PATH" || error_msg "fallo la instalacion de chdkptp"
 else
 	echo "chdkptp ya instalado"
 fi
@@ -185,22 +282,18 @@ fi
 echo "instalando pdfbeads"
 
 if ! pdfbeads_check; then
-	current_folder="$PWD"
 
-	GEMS_ORIG="$BIBLIOHACK_ORIG/gem"
-	PDFBEADS_ORIG_DPKG_DIR="$BIBLIOHACK_ORIG/deb/ruby-pdfbeads"
-
-	cd "$PDFBEADS_ORIG_DPKG_DIR" || exit 1
-	sudo dpkg -iEG *.deb || exit 1
+	dpkg_install "$PDFBEADS_ORIG_DPKG_DIR"
 
    verify_iconv=$(gem list -i iconv)
 	if [ "$verify_iconv" == "false" ]; then
 		echo "instalando iconv"
-		TARBASE=""; cp_and_untar "$GEMS_ORIG/iconv_ubuntu_bionic-x86_64-rubygem.tar.gz" "$TMPDIR" || exit 1
+	   current_folder="$PWD"
+		TARBASE=""; cp_and_untar "$GEMS_ORIG/$ICONV_RUBYGEM_TAR" "$TMPDIR" || exit 1
 		cd "${TMPDIR}/${TARBASE}" || {echo "error: cd ${TMPDIR}/${TARBASE}"; exit 1;}
 		cd iconv/cache || exit 1
-
 		sudo gem install --force --local *.gem || exit 1
+		cd "$current_folder"
 		verify_iconv=$(gem list -i iconv)
 		[[ "$verify_iconv" == "false" ]] && error_msg "error: no se pudo instalar iconv"
 	else
@@ -212,39 +305,62 @@ if ! pdfbeads_check; then
 		fi
 	fi
 	CUSTOM_TARDIR="${PDFBEADS_DIR##*/}"
-	cp_and_untar "$BIBLIOHACK_ORIG_SRCDIR/pdfbeads-kopi.tar.gz" "$COMPONENTS" "$CUSTOM_TARDIR" || exit 1
+	cp_and_untar "$PDFBEADS_SRC_TAR_PATH" "$COMPONENTS" "$CUSTOM_TARDIR" || exit 1
 	[[ -d "$PDFBEADS_DIR" ]] || error_msg "'$PDFBEADS_DIR' no existe!"
 
-	if pdfbeads_check; then 
+	if pdfbeads_check; then
 		echo "pdfbeads instalado ok"
-	else 
+	else
 		echo "error! pdfbeads no se instalo correctamente"
 	fi
 
-	cd "$current_folder"
 else
 	echo "pdfbeads ya instalado"
 fi
 
 # ------------------------------------------
 # tesseract
-# sudo dpkg -iEG *.deb OK!!
+# TESSERACT="INSTALLED"
 
+if [ "$TESSERACT" != "INSTALLED" ]; then
+	dpkg_install "$TESSERACT_ORIG_DPKG_DIR" || exit 1
+fi
+
+# ------------------------------------------
+# scantailor
+
+if ! scantailor_enhanced_check; then
+	dpkg_install "$SCANTAILOR_ORIG_DPKG_DIR" || exit 1
+	CUSTOM_TARDIR="${SCANTAILOR_ENHANCED_DIR##*/}"
+	cp_and_untar "$SCANTAILOR_ENHANCED_TAR_PATH" "$COMPONENTS" "$CUSTOM_TARDIR" || exit 1
+	scantailor_enhanced_check && echo "Scantailor Enhanced instalado: OK" || exit 1
+else
+	echo "Scantailor Enhanced ya instalado"
+fi
+
+if ! scantailor_universal_check; then
+	dpkg_install "$SCANTAILOR_UNIVERSAL_ORIG_DPKG_DIR" || exit 1
+	CUSTOM_TARDIR="${SCANTAILOR_UNIVERSAL_DIR##*/}"
+	cp_and_untar "$SCANTAILOR_UNIVERSAL_TAR_PATH" "$COMPONENTS" "$CUSTOM_TARDIR" || exit 1
+	scantailor_universal_check && echo "Scantailor Universal instalado: OK" || exit 1
+else
+	echo "Scantailor Universal ya instalado"
+fi
+
+if ! scantailor_advanced_check; then
+	dpkg_install "$SCANTAILOR_ADVANCED_ORIG_DPKG_DIR" || exit 1
+	CUSTOM_TARDIR="${SCANTAILOR_ADVANCED_DIR##*/}"
+	cp_and_untar "$SCANTAILOR_ADVANCED_TAR_PATH" "$COMPONENTS" "$CUSTOM_TARDIR" || exit 1
+	scantailor_advanced_check && echo "Scantailor Advanced instalado: OK" || exit 1
+else
+	echo "Scantailor Advanced ya instalado"
+fi
 
 # ------------------------------------------
 # evince/geeqie
 # sudo dpkg -iEG *.deb OK!!
 
 # ------------------------------------------
-# scantailor universal
-# cd scantailor
-# sudo dpkg -iEG *.deb  OK!!
-# cd scantailor-universal-qt5
-# sudo dpkg -iEG *.deb  OK!!
-# corre OK!!! OJO al descomprimir queda ./scantailor_universal-0.2.5-ubuntu_bionic-x86_64-bin/scantailor-universal
-
-# ------------------------------------------
 # keybase dpkg ok
 
 exit 0
-
