@@ -28,17 +28,46 @@ COMPONENTS="$BIBLIOHACK_DIR/components"
 
 [[ "$1" != "" ]] && BIBLIOHACK_ORIG="$1" || error_msg "error: BIBLIOHACK_ORIG='$BIBLIOHACK_ORIG'"
 
-BIBLIOHACK_ORIG_SRCDIR="$BIBLIOHACK_ORIG/src"
-BIBLIOHACK_ORIG_DPKG="$BIBLIOHACK_ORIG/deb"
-
-FCENTESIS_DIR="$BIBLIOHACK_ORIG/fcen-tesis"
-DALCLICK_DIR="$BIBLIOHACK_ORIG/dalclick"
+FCENTESIS_DIR="$BIBLIOHACK_DIR/fcen-tesis"
+DALCLICK_DIR="$BIBLIOHACK_DIR/dalclick"
 SCANTAILOR_ADVANCED_DIR="$COMPONENTS/scantailor-advanced"
 SCANTAILOR_UNIVERSAL_DIR="$COMPONENTS/scantailor-universal"
 SCANTAILOR_ENHANCED_DIR="$COMPONENTS/scantailor-enhanced"
 PDFBEADS_DIR="$COMPONENTS/pdfbeads-kopi"
 CHDKPTP_DIR="$RESOURCES/chdkptp-461"
 TECGRAF_DIR="$RESOURCES/tecgraf"
+
+if [[ "$2" == "reset" ]]; then
+        [[ -d "$RESOURCES/tecgraf" ]] && {
+		echo "desinstalando Tecgraf..."
+		$INSTALADORES_DIR/tecgraf uninstall tecgraf_dir="$RESOURCES/tecgraf" || exit 1
+	}
+	[[ -d "$RESOURCES" ]] && {
+		sudo rm -r "$RESOURCES" || exit 1
+	}
+	[[ -d "$COMPONENTS" ]] && {
+		sudo rm -r "$COMPONENTS" || exit 1
+	}
+	[[ -d "$FCENTESIS_DIR" ]] && {
+		sudo rm -r "$FCENTESIS_DIR" || exit 1
+	}
+	[[ -d "$DALCLICK_DIR" ]] && {
+		sudo rm -r "$DALCLICK_DIR" || exit 1
+	}
+	[[ -d "$TMPDIR" ]] && {
+		sudo rm -r "$TMPDIR" || exit 1
+	}
+	[[ -f "$BIBLIOHACK_DIR/.config" ]] && {
+		rm "$BIBLIOHACK_DIR/.config" || exit 1
+	}
+	echo ""
+	echo "Instalación previa eliminada."
+	echo "use:"
+	echo "> cd$INSTALADORES_DIR" 
+        echo "> $0 $1"
+        echo "para reiniciar la instalación."
+	exit 0
+fi
 
 [[ -d "$BIBLIOHACK_DIR" ]] || {
 	sudo mkdir "$BIBLIOHACK_DIR" || exit 1
@@ -56,6 +85,11 @@ sudo chmod a+rw "$BIBLIOHACK_DIR"
 }
 
 # --------------------------------------------------------
+
+BIBLIOHACK_ORIG_SRCDIR="$BIBLIOHACK_ORIG/src"
+BIBLIOHACK_ORIG_DPKG="$BIBLIOHACK_ORIG/deb"
+BIBLIOHACK_ORIG_BINDIR="$BIBLIOHACK_ORIG/bin"
+
 # chdkptp orig paths
 CHDKPTP_ORIG_DPKG_DIR="$BIBLIOHACK_ORIG_DPKG/chdkptp"
 CHDKPTP_SRC_TAR_PATH="$BIBLIOHACK_ORIG_SRCDIR/chdkptp-461.tar.gz"
@@ -95,7 +129,7 @@ error_msg() {
 }
 
 fcentesis_check() {
-   [[ -f "$FCENTESIS_DIR/fcen-postprocessing/scripts/fcen-postprocessing " ]] && return 0 || return 1
+   [[ -f "$FCENTESIS_DIR/fcen-postprocessing/scripts/fcen-postprocessing" ]] && return 0 || return 1
 }
 
 dalclick_check() {
@@ -103,16 +137,12 @@ dalclick_check() {
 }
 
 scantailor_advanced_check() {
-	check=$( $SCANTAILOR_ADVANCED_DIR/scantailor-cli -h | sed -n '2p' )
-	if [ "$check" == "Scan Tailor is a post-processing tool for scanned pages." ]
-	 then
-	  return 0
-	else
-	  return 1
-	fi
+	[[ -f "$SCANTAILOR_ADVANCED_DIR/scantailor" ]] || return 1
+	return 0
 }
 
 scantailor_universal_check() {
+	[[ -f "$SCANTAILOR_UNIVERSAL_DIR/scantailor-cli" ]] || return 1 
 	check=$( $SCANTAILOR_UNIVERSAL_DIR/scantailor-cli -h | sed -n '2p' )
 	if [ "$check" == "Scan Tailor is a post-processing tool for scanned pages." ]
 	 then
@@ -134,7 +164,7 @@ scantailor_universal_check() {
 
 tesseract_check() {
 	check=$( tesseract -v  2>&1 | head -n 1 )
-	if [[ "$check" =~ ^"tesseract 3" ]]
+	if [[ "$check" =~ ^"tesseract 4" ]]
 	 then
 	  return 0
 	else
@@ -162,17 +192,20 @@ chdkptp_check() {
 }
 
 tecgraf_check() {
+	[[ ! -d "$TECGRAF_DIR" ]] && return 1
 	iup_ver=$("$INSTALADORES_DIR/tecgraf" print_ver=iup tecgraf_dir="$TECGRAF_DIR")
 	cd_ver=$("$INSTALADORES_DIR/tecgraf" print_ver=cd tecgraf_dir="$TECGRAF_DIR")
    if [ "$iup_ver" == "" ] || [ "$cd_ver" == "" ]; then
+	echo "tecgraf no instalado - iup '$iup_ver', cd '$cd_ver'"
 	  return 1
-	elif [ "$iup_ver" == "3.8" ] && [ "$cd_ver" == "5.6.1" ]; then
+   elif [ "$iup_ver" == "3.8" ] && [ "$cd_ver" == "5.6.1" ]; then
+	echo "tecgraf ya instalado"
 	  return 0
    else
      echo "tecgraf: versiones no compatibles iup_ver=$iup_ver (3.8) cd_ver=$cd_ver (5.6.1)"
      echo "debe desinstalarlas manualmente antes de usar este instalador"
      exit 1
-	fi
+   fi
 }
 
 #install_gem() {
@@ -224,7 +257,7 @@ cp_and_untar() {
 
 # config bibliohack
 
-if [ -f "$BIBLIOHACK_DIR/.config" ]
+if [ -f "$BIBLIOHACK_DIR/.config" ]; then
    . "$BIBLIOHACK_DIR/.config"
 fi
 
@@ -236,7 +269,7 @@ if [[ -z $INSTITUCION_ID ]]; then
    do
       echo "Ingresa un nombre identificador sin espacios"
       echo "ni acentos, de entre 2 y 16 caracteres"
-      read -p "> " $INSTITUCION_ID
+      read -p "> " INSTITUCION_ID
       [[ "$INSTITUCION_ID" =~ ^[a-zA-Z0-9_-]{2,16}$ ]] && break || echo "NO VALIDO!"
    done
    config_file=$(cat << EOF
@@ -246,6 +279,11 @@ INSTITUCION_ID="$INSTITUCION_ID"
 EOF
    )
    echo "$config_file" > "$BIBLIOHACK_DIR/.config" || exit 1
+else
+	echo "Ya se intentó una instalación previa:"
+	echo "- $INSTITUCION"
+	echo "- $INSTITUCION_ID"
+	echo ""
 fi
 
 # --------------------------------------------------------
@@ -271,16 +309,14 @@ tecgraf_ok=$(cat <<EOF
  _____                         __
 |_   _|__  ___ __ _ _ __ __ _ / _|
   | |/ _ \/ __/ _\` | '__/ _\` | |_
-  | |  __/ (_| (_| | | | (_| |  _|
+  | |  __/ (_| (_| | | | (_| |  _|    ** Instalación Exitosa **
   |_|\___|\___\__, |_|  \__,_|_|
              |___/
-
-  ** Instalado **
 
 EOF
 )
 
-echo "instalando tecgraf"
+echo -e "Iniciando instalación de Tecgraf IUP CD IM \n"
 
 if ! tecgraf_check; then
 	[[ -d "$TECGRAF_DIR" ]] || {
@@ -295,17 +331,15 @@ fi
 
 chdkptp_ok=$(cat <<EOF
   ____ _   _ ____  _  ______ _____ ____
- / ___| | | |  _ \| |/ /  _ \_   _|  _ \
+ / ___| | | |  _ \| |/ /  _ \_   _|  _ \\ 
 | |   | |_| | | | | ' /| |_) || | | |_) |
-| |___|  _  | |_| | . \|  __/ | | |  __/
+| |___|  _  | |_| | . \|  __/ | | |  __/     ** Instalación Exitosa **
  \____|_| |_|____/|_|\_\_|    |_| |_|
-
-  ** Instalado **
 
 EOF
 )
 
-echo "instalando chdkptp"
+echo -e "Iniciando instalación de CHDKPTP \n"
 
 # Se encontraron errores al procesar:
 # python3_3.6.7-1~18.04_amd64.deb
@@ -327,20 +361,20 @@ if ! chdkptp_check; then
 	}
 	echo $INSTALADORES_DIR/chdkptp install profile=d tecgraf_dir="$TECGRAF_DIR" chdkptp_dir="$CHDKPTP_DIR" orig_dpkg_dir="$CHDKPTP_ORIG_DPKG_DIR" orig_path="$CHDKPTP_SRC_TAR_PATH"
 	$INSTALADORES_DIR/chdkptp install profile=d tecgraf_dir="$TECGRAF_DIR" chdkptp_dir="$CHDKPTP_DIR" orig_dpkg_dir="$CHDKPTP_ORIG_DPKG_DIR" orig_path="$CHDKPTP_SRC_TAR_PATH" || error_msg "fallo la instalacion de chdkptp"
-   echo "$chdkptp_ok"
+   echo -e "$chdkptp_ok \n\n"
 else
 	echo "chdkptp ya instalado"
 fi
 
 # --------------------------------------------------------
+echo -e "Iniciando instalación de Pdfbeads \n"
+
 pdfbeads_ok=$(cat <<EOF
  ____     _  __ _                    _
 |  _ \ __| |/ _| |__   ___  __ _  __| |___
 | |_) / _\` | |_| '_ \ / _ \/ _\` |/ _\` / __|
-|  __/ (_| |  _| |_) |  __/ (_| | (_| \__ \
+|  __/ (_| |  _| |_) |  __/ (_| | (_| \__ \\     ** Instalación Exitosa **
 |_|   \__,_|_| |_.__/ \___|\__,_|\__,_|___/
-
-  ** Instalado **
 
 EOF
 )
@@ -356,8 +390,11 @@ if ! pdfbeads_check; then
 		echo "instalando iconv"
 	   current_folder="$PWD"
 		TARBASE=""; cp_and_untar "$GEMS_ORIG/$ICONV_RUBYGEM_TAR" "$TMPDIR" || exit 1
-		cd "${TMPDIR}/${TARBASE}" || {echo "error: cd ${TMPDIR}/${TARBASE}"; exit 1;}
-		cd iconv/cache || exit 1
+		cd "${TMPDIR}/${TARBASE}" || {
+		   echo "error: cd ${TMPDIR}/${TARBASE}"
+                   exit 1
+                }
+		cd cache || exit 1
 		sudo gem install --force --local *.gem || exit 1
 		cd "$current_folder"
 		verify_iconv=$(gem list -i iconv)
@@ -375,7 +412,7 @@ if ! pdfbeads_check; then
 	[[ -d "$PDFBEADS_DIR" ]] || error_msg "'$PDFBEADS_DIR' no existe!"
 
 	if pdfbeads_check; then
-		echo "$pdfbeads_ok"
+		echo -e "$pdfbeads_ok \n\n"
 	else
 		echo "error! pdfbeads no se instalo correctamente"
 	fi
@@ -386,33 +423,34 @@ fi
 
 # ------------------------------------------
 # tesseract
+echo -e "Iniciando instalación de Tesseract OCR \n"
+
 tesseract_ok=$(cat <<EOF
  _____                                 _
 |_   _|__  ___ ___  ___ _ __ __ _  ___| |_
   | |/ _ \/ __/ __|/ _ \ '__/ _\` |/ __| __|
-  | |  __/\__ \__ \  __/ | | (_| | (__| |_
+  | |  __/\__ \__ \  __/ | | (_| | (__| |_     ** Instalación Exitosa **
   |_|\___||___/___/\___|_|  \__,_|\___|\__|
-
-  ** Instalado **
 
 EOF
 )
 
 if ! tesseract_check; then
 	dpkg_install "$TESSERACT_ORIG_DPKG_DIR" || exit 1
-   echo "$tesseract_ok"
+   echo -e "$tesseract_ok \n\n"
 fi
 
 # ------------------------------------------
 # scantailor
+
+echo -e "Iniciando instalación de Scantailor \n"
+
 scantailor_ok=$(cat <<EOF
  ____                  _        _ _
 / ___|  ___ __ _ _ __ | |_ __ _(_) | ___  _ __
 \___ \ / __/ _\` | '_ \| __/ _\` | | |/ _ \| '__|
- ___) | (_| (_| | | | | || (_| | | | (_) | |
+ ___) | (_| (_| | | | | || (_| | | | (_) | |        ** Instalación Exitosa **
 |____/ \___\__,_|_| |_|\__\__,_|_|_|\___/|_|
-
-  ** Instalado **
 
 EOF
 )
@@ -428,36 +466,36 @@ scantailor_instalado=""
 # fi
 
 if ! scantailor_universal_check; then
-	dpkg_install "$SCANTAILOR_UNIVERSAL_ORIG_DPKG_DIR" || exit 1
+	dpkg_install "$SCANTAILOR_UNIVERSAL_ORIG_DPKG_DIR" || error_msg "fallo dpkg scantailor universal"
 	CUSTOM_TARDIR="${SCANTAILOR_UNIVERSAL_DIR##*/}"
-	cp_and_untar "$SCANTAILOR_UNIVERSAL_TAR_PATH" "$COMPONENTS" "$CUSTOM_TARDIR" || exit 1
-	scantailor_universal_check && echo "Scantailor Universal instalado: OK" || exit 1
+	echo cp_and_untar "$SCANTAILOR_UNIVERSAL_TAR_PATH" "$COMPONENTS" "$CUSTOM_TARDIR"
+	cp_and_untar "$SCANTAILOR_UNIVERSAL_TAR_PATH" "$COMPONENTS" "$CUSTOM_TARDIR" || error_msg "fallo cp_and_untar para scantailor universal"
+	scantailor_universal_check && echo "Scantailor Universal instalado: OK" || error_msg "fallo check de instalacion para scantailor universal"
    scantailor_instalado="OK"
 else
 	echo "Scantailor Universal ya instalado"
 fi
 
 if ! scantailor_advanced_check; then
-	dpkg_install "$SCANTAILOR_ADVANCED_ORIG_DPKG_DIR" || exit 1
+	dpkg_install "$SCANTAILOR_ADVANCED_ORIG_DPKG_DIR" || error_msg "fallo dpkg scantailor advanced"
 	CUSTOM_TARDIR="${SCANTAILOR_ADVANCED_DIR##*/}"
-	cp_and_untar "$SCANTAILOR_ADVANCED_TAR_PATH" "$COMPONENTS" "$CUSTOM_TARDIR" || exit 1
-	scantailor_advanced_check && echo "Scantailor Advanced instalado: OK" || exit 1
+	echo cp_and_untar "$SCANTAILOR_ADVANCED_TAR_PATH" "$COMPONENTS" "$CUSTOM_TARDIR"
+	cp_and_untar "$SCANTAILOR_ADVANCED_TAR_PATH" "$COMPONENTS" "$CUSTOM_TARDIR" || error_msg "fallo cp_and_untar para scantailor advanced"
+	scantailor_advanced_check && echo "Scantailor Advanced instalado: OK" || error_msg "fallo check de instalacion para scantailor advanced"
    scantailor_instalado="OK"
 else
 	echo "Scantailor Advanced ya instalado"
 fi
 
-[[ "$scantailor_instalado" == "OK" ]] && echo "$scantailor_ok"
+[[ "$scantailor_instalado" == "OK" ]] && echo -e "$scantailor_ok \n\n"
 
 # ------------------------------------------
 dalclick_ok=$(cat <<EOF
  ____        _      _ _      _
 |  _ \  __ _| | ___| (_) ___| | __
 | | | |/ _\` | |/ __| | |/ __| |/ /
-| |_| | (_| | | (__| | | (__|   <
+| |_| | (_| | | (__| | | (__|   <     ** Instalación Exitosa **
 |____/ \__,_|_|\___|_|_|\___|_|\_\
-
-  ** Instalado **
 
 EOF
 )
@@ -501,7 +539,7 @@ EOF
 SCANTAILOR_PATH="$SCANTAILOR_UNIVERSAL_DIR/scantailor"
 SCANTAILOR_ADV_PATH="$SCANTAILOR_ADVANCED_DIR/scantailor"
 PDFBEADS_PATH="$PDFBEADS_DIR/bin/pdfbeads"
-CHDKPTP_PATH="$CHDKPTP_DIR/chdkptp"
+CHDKPTP_PATH="$CHDKPTP_DIR"
 
 #SE_BIN="${SCANTAILOR_PATH}-cli" #Scantailor enhanced exec path
 #PB_BIN="$PDFBEADS_PATH" #Pdfbeads enhanced
@@ -511,9 +549,11 @@ EOF
    if [[ ! -d "$HOME/.dalclick" ]]; then
       mkdir "$HOME/.dalclick" || exit 1
    fi
-   echo "config_file" > "$HOME/.dalclick/CONFIG"
-   echo "components_file" > "$DALCLICK_DIR/COMPONENTS"
-   dalclick_check && echo "$dalclick_ok" || exit 1
+   echo "$config_file" > "$HOME/.dalclick/CONFIG"
+   echo "$components_file" > "$DALCLICK_DIR/COMPONENTS"
+   dalclick_check && echo -e "$dalclick_ok \n\n" || exit 1
+else
+	echo "dalclick ya instalado"
 fi
 
 # ------------------------------------------
@@ -521,17 +561,17 @@ fcentesis_ok=$(cat <<EOF
  _____                    _            _
 |  ___|__ ___ _ __       | |_ ___  ___(_)___
 | |_ / __/ _ \ '_ \ _____| __/ _ \/ __| / __|
-|  _| (_|  __/ | | |_____| ||  __/\__ \ \__ \
+|  _| (_|  __/ | | |_____| ||  __/\__ \ \__ \     ** Instalación Exitosa **
 |_|  \___\___|_| |_|      \__\___||___/_|___/
-
-  ** Instalado **
 
 EOF
 )
 
 if ! fcentesis_check; then
    CUSTOM_TARDIR="${FCENTESIS_DIR##*/}"
-   cp_and_untar "$FCENTESIS_SRC_TAR_PATH" "$BIBLIOHACK_DIR" "$CUSTOM_TARDIR" || exit 1
+   echo cp_and_untar "$FCENTESIS_SRC_TAR_PATH" "$BIBLIOHACK_DIR" "$CUSTOM_TARDIR"
+   cp_and_untar "$FCENTESIS_SRC_TAR_PATH" "$BIBLIOHACK_DIR" "$CUSTOM_TARDIR" || 
+	error_msg "fallo cp_and_untar"
    components_file=$(cat << EOF
 # Components paths
 
@@ -543,7 +583,9 @@ EOF
    echo "$components_file" > "$FCENTESIS_DIR/fcen-postprocessing/scripts/COMPONENTS" || {
       error_msg "No se pudo crear '$FCENTESIS_DIR/fcen-postprocessing/scripts/COMPONENTS'"
    }
-   echo "$fcentesis_ok"
+   echo -e "$fcentesis_ok \n\n"
+else
+	echo "fcen-tesis ya instalado"
 fi
 
 # ------------------------------------------
