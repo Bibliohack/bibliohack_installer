@@ -80,7 +80,19 @@ check_and_install_pkg 'lightdm' 'gnome-session-flashback' || { echo "error!"; re
 # dconf-tools
 # gnome-tweaks
 
-#gsettings set org.gnome.nautilus.preferences always-use-location-entry true
+# que el explorador de archivos muestre rutas que se puedan copiar:
+# gsettings set org.gnome.nautilus.preferences always-use-location-entry true
+
+# solucionar el problema del nuevo comporatmiento del explorador de archivos
+# (busqueda general cuando se tipea, en vez de ir a los archivso listados)
+# https://askubuntu.com/questions/275883/traditional-search-as-you-type-on-newer-nautilus-versions
+# https://askubuntu.com/questions/1037732/type-ahead-search-using-nautilus-on-ubuntu-18-04
+
+# que deje de aparecer el popup de actualizaciones de software
+# gsettings set com.ubuntu.update-notifier no-show-notifications true
+
+# desinstalar tambien unattended-upgrades:
+# sudo apt-get remove unattended-upgrades 
 
 # telegram
 
