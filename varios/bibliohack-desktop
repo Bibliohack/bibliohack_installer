@@ -67,11 +67,25 @@ fi
 
 # instalacion de entorno de escritorio
 
-check_and_remove_pkg 'ubuntu-session' 'gdm3' || { echo "error!"; return 1; }
+# sudo service gdm3 stop
 
-check_and_install_pkg 'lightdm' 'gnome-session-flashback' || { echo "error!"; return 1; }
+# cargar dpkg del usb!!
 
-# slick-greeter lightdm-settings
+CONTENT="[Seat:*]
+greeter-session=sleck-greeter
+"
+
+sudo echo $CONTENT > /etc/lightdm/lightdm.conf
+
+sudo apt-get remove gdm3
+
+sudo dpkg-reconfigure lightdm
+
+# #check_and_install_pkg 'lightdm' 'gnome-session-flashback' || { echo "error!"; return 1; }
+# #slick-greeter lightdm-settings
+# check_and_remove_pkg 'ubuntu-session' 'gdm3' || { echo "error!"; return 1; }
+
+
 # /etc/lightdm/slick-greeter.conf
 # ? gnome-tweaks
 
