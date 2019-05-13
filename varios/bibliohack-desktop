@@ -171,6 +171,7 @@ EOF
 sudo systemctl stop gdm3
 
 # instalar lightdm gnome-session-flashback slick-greeter lightdm-settings
+# #check_and_install_pkg 'lightdm' 'gnome-session-flashback' 'slick-greeter' 'lightdm-settings' 'arc-theme' || { echo "error!"; return 1; }
 dpkg_install "$BIBLIOHACK_ORIG/deb/bibliohack-desktop"
 
 check_and_remove_pkg 'ubuntu-session' 'gdm3' || { echo "error!"; exit 1; }
@@ -193,8 +194,16 @@ gsettings set org.gnome.nautilus.preferences always-use-location-entry true || e
 # Eliminar bookmarks por defecto y agregar "Archivo"
 sudo echo $GNOMEBOOKMARKS_CONTENT > "$GNOMEBOOKMARKS_FILE" || exit 1
 
+## https://askubuntu.com/questions/1091972/how-do-i-create-app-folders-in-the-gnome-application-menu
+## https://developer.gnome.org/integration-guide/stable/desktop-files.html.en
+## https://askubuntu.com/questions/495938/script-adding-launchers-to-the-top-gnome-panel%20 (!) panel
+## https://developer.gnome.org/integration-guide/stable/desktop-files.html.en
 
-# #check_and_install_pkg 'lightdm' 'gnome-session-flashback' || { echo "error!"; return 1; }
+gsettings set org.gnome.desktop.app-folders folder-children "['Bibliohack']"
+
+gsettings set org.gnome.desktop.app-folders.folder:/org/gnome/desktop/app-folders/folders/Bibliohack/ apps "['dalclick.desktop', 'dalproc.desktop']"
+
+gsettings set org.gnome.desktop.app-folders.folder:/org/gnome/desktop/app-folders/folders/Bibliohack/ name 'Bibliohack'
 
 # ? gnome-tweaks
 
