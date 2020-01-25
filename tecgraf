@@ -114,7 +114,8 @@ function set_packages_param {
 
     if [ "$RELEASN" == '18.04' ] && [ "$OSNAME" == 'Ubuntu' ]
      then
-      DEPS="lua5.1 liblua5.1-0-dev lua5.2 liblua5.2-dev libfreetype6-dev libcanberra-gtk-module" # libftgl-dev zlib1g-dev
+      DEPS="lua5.1 liblua5.1-0-dev lua5.2 liblua5.2-dev libfreetype6-dev libcanberra-gtk-module zlib1g-dev libpng-dev liblua5.2-0"
+      # DEPS="lua5.1 liblua5.1-0-dev lua5.2 liblua5.2-dev libfreetype6-dev libcanberra-gtk-module" # libftgl-dev zlib1g-dev
     else
       DEPS="lua5.1 liblua5.1-0-dev lua5.2 liblua5.2-dev libfreetype6-dev" # libftgl-dev zlib1g-dev
     fi
@@ -358,7 +359,7 @@ function install_tecgraf {
         if [ "root" != "$CURRENT_USER" ]; then
             echo "para instalar paquetes con apt-get es necesario hacerse root..."
             # todo check if deb-src enabled
-            if [ "$ORIG_DPKG_DIR" != "" ]; then
+            if [[ "$OFFLINE_INSTALATION" == "YES" && "$ORIG_DPKG_DIR" != "" ]]; then
                current_folder="$PWD"
             	cd "$ORIG_DPKG_DIR"
 	            "$OWN_DIR/tools/run_as_root" "dpkg -iEG" *.deb || {
@@ -367,13 +368,13 @@ function install_tecgraf {
 	            }
 	            cd "$current_folder"
             else
-	            "$OWN_DIR/tools/run_as_root" "apt-get install" "$DEPS" || {
+	            "$OWN_DIR/tools/run_as_root" "apt-get -y install" "$DEPS" || {
 	                >&2 echo "ERROR al instalar con apt-get"
 	                exit 1
 	            }
             fi
         else
-            if [ "$ORIG_DPKG_DIR" != "" ]; then
+            if [[ "$OFFLINE_INSTALATION" == "YES" && "$ORIG_DPKG_DIR" != "" ]]; then
                 current_folder="$PWD"
             	cd "$ORIG_DPKG_DIR"
 	            dpkg -iEG *.deb || {
@@ -382,7 +383,7 @@ function install_tecgraf {
 	            }
 	            cd "$current_folder"
             else
-	            apt-get install $DEPS || {
+	            apt-get -y install $DEPS || {
 	                >&2 echo "ERROR al instalar con apt-get"
 	                exit 1
 	            }
@@ -520,6 +521,8 @@ PROFILE_OPT=''
 ACTION=''
 ORIG_DIR=''
 
+OFFLINE_INSTALLATION=''
+
 if [ "$1" == "" ]; then
    ACTION="install"
 else
@@ -532,6 +535,9 @@ else
           ;;
           profile=*)
               PROFILE_OPT="${arg#*=}"
+          ;;
+          offline_installation=*)
+              OFFLINE_INSTALLATION="${arg#*=}"
           ;;
           orig_url=*)
               ALT_URL="${arg#*=}"
