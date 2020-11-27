@@ -1,3 +1,3 @@
-# instaladores
+# Scripts instaladores de Bibliohack Stack
 
-install all bibliohack software packages from bibliohack_intaller
+Ver <https://github.com/Bibliohack/bibliohack_stack>
