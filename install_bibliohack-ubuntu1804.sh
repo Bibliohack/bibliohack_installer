@@ -435,7 +435,7 @@ if ! pdfbeads_check; then
 	if pdfbeads_check; then
 		echo -e "$pdfbeads_ok \n\n"
 	else
-		echo "error! pdfbeads no se instalo correctamente"
+		echo "error! pdfbeads no se instaló correctamente"
 	fi
 
 else
@@ -536,7 +536,7 @@ if ! scantailor_advanced_check; then
 	CUSTOM_TARDIR="${SCANTAILOR_ADVANCED_DIR##*/}"
 	echo cp_and_untar "$SCANTAILOR_ADVANCED_TAR_PATH" "$COMPONENTS" "$CUSTOM_TARDIR"
 	cp_and_untar "$SCANTAILOR_ADVANCED_TAR_PATH" "$COMPONENTS" "$CUSTOM_TARDIR" || error_msg "fallo cp_and_untar para scantailor advanced"
-	scantailor_advanced_check && echo "Scantailor Advanced instalado: OK" || error_msg "fallo check de instalacion para scantailor advanced"
+	scantailor_advanced_check && echo "Scantailor Advanced instalado: OK" || error_msg "fallo check de instalación para scantailor advanced"
    scantailor_instalado="OK"
 else
 	echo "Scantailor Advanced ya instalado"
