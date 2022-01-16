@@ -36,7 +36,7 @@ function set_chdkptp_profile {
     if [ "$profile" == "u" ]
      then
       [[ "$PRINT_SELEC" == "Yes" ]] && \
-        echo -e "Seleccionando version de CHDKPTP para 'última versión' (u)\n"
+        echo -e "Seleccionando versión de CHDKPTP para 'última versión' (u)\n"
       CHDKPTP_VER=""
       IUP_VER="3.23"
       CD_VER="5.11.1"
@@ -44,7 +44,7 @@ function set_chdkptp_profile {
     elif [ "$profile" == "d" ]
      then
       [[ "$PRINT_SELEC" == "Yes" ]] && \
-        echo -e "Seleccionando version de CHDKPTP para 'dalclick' (d)\n"
+        echo -e "Seleccionando versión de CHDKPTP para 'dalclick' (d)\n"
       CHDKPTP_VER="461"
       IUP_VER="3.8"
       CD_VER="5.6.1"
